@@ -54,7 +54,7 @@ async function buildErrorAnnotations(cucumberError) {
         const globalInformation = reportReader.globalInformation(reportResult);
         const summary = `
             ${globalInformation.scenarioNumber} Scenarios (${globalInformation.failedScenarioNumber} failed, ${globalInformation.scenarioNumber - globalInformation.failedScenarioNumber} passed)
-            ${globalInformation.stepsNumber} Steps (${globalInformation.failedStepsNumber} failed, ${globalInformation.stepsNumber - globalInformation.failedStepsNumber} passed)
+            ${globalInformation.stepsNumber} Steps (${globalInformation.failedStepsNumber} failed, ${globalInformation.skippedStepsNumber} skipped, ${globalInformation.succeedStepsNumber} passed)
         `;
         const errors = reportReader.failures(reportResult);
         const errorAnnotations = await Promise.all(errors.map(buildErrorAnnotations));
