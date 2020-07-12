@@ -4,7 +4,8 @@
   "description": "This action should be used to publish action annotations from cucumber json report.",
   "main": "index.js",
   "scripts": {
-    "test": "mocha **/*.spec.js"
+    "test": "mocha **/*.spec.js",
+    "cucumber": "cucumber-js cucumber --format json:cucumber-report.json --require '**/step-definitions/**/*.js'"
   },
   "repository": {
     "type": "git",
@@ -23,5 +24,8 @@
     "@actions/glob": "^0.1.0",
     "expect.js": "^0.3.1",
     "mocha": "^8.0.1"
+  },
+  "devDependencies": {
+    "cucumber": "^6.0.5"
   }
 }
