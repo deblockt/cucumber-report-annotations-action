@@ -4,6 +4,39 @@ const glob = require("@actions/glob");
 const fs = require("fs");
 const reportReader = require('./reportReader');
 
+async function findBestFileMatch(file) {
+    if (file.startsWith('classpath:')) {
+        file = file.substring(10);
+    }
+    const glober = await glob.create('**/' + file, {
+        followSymbolicLinks: false,
+    });
+
+    const match = [];
+    for await (const featureFile of glober.globGenerator()) {
+        match.push(featureFile);
+    }
+
+    return match[0];
+}
+
+async function buildErrorAnnotations(cucumberError) {
+    return {
+        path: (await findBestFileMatch(cucumberError.file)) || cucumberError.file,
+        start_line: cucumberError.line,
+        end_line: cucumberError.line,
+        start_column: 0,
+        end_column: 0,
+        annotation_level: 'failure',
+        message: `
+        Test Failure: ${cucumberError.title}
+        Step: ${cucumberError.step}
+        Error: ${cucumberError.error}
+        `,
+    }
+
+}
+
 (async() => {
     const inputPath = core.getInput("path");
     const accessToken = core.getInput("access-token");
@@ -23,10 +56,9 @@ const reportReader = require('./reportReader');
             ${globalInformation.scenarioNumber} Scenarios (${globalInformation.failedScenarioNumber} failed, ${globalInformation.scenarioNumber - globalInformation.failedScenarioNumber} passed)
             ${globalInformation.stepsNumber} Steps (${globalInformation.failedStepsNumber} failed, ${globalInformation.stepsNumber - globalInformation.failedStepsNumber} passed)
         `;
-
+        const errors = reportReader.failures(reportResult);
+        const errorAnnotations = await Promise.all(errors.map(buildErrorAnnotations));
         const pullRequest = github.context.payload.pull_request;
-        const link = (pullRequest && pullRequest.html_url) || github.context.ref;
-        const status = "completed";
         const head_sha = (pullRequest && pullRequest.head.sha) || github.context.sha;
         const annotations = [
             {
@@ -37,14 +69,15 @@ const reportReader = require('./reportReader');
                 end_column: 0,
                 annotation_level: 'notice',
                 message: summary,
-            }
+            },
+            ...errorAnnotations
         ];
         const createCheckRequest = {
             ...github.context.repo,
             name: 'Cucumber report',
             head_sha,
-            status,
-            conclusion: 'success',
+            status: 'completed',
+            conclusion: errorAnnotations.lenth == 0 ? 'success' : 'failure',
             output: {
               title: 'Cucumber report',
               summary,

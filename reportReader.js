@@ -4,6 +4,18 @@ module.exports.globalInformation = (report) => {
         .reduce((a, b) => sum(a, b));
 } 
 
+module.exports.failures = (report) => {
+    return report
+        .map(fileReport => fileFailures(fileReport))
+        .reduce((a, b) => a.concat(b), []);
+}
+
+function fileFailures(fileReport) {
+    return fileReport.elements
+        .filter(scenario => isFailed(scenario))
+        .map(failedScenario => buildFailData(fileReport, failedScenario));
+}
+
 function sum(info1, info2) {
     return {
         scenarioNumber: info1.scenarioNumber + info2.scenarioNumber,
@@ -36,10 +48,25 @@ function globalFileInformation(reportFile) {
 }
 
 function getFailedSteps(scenario) {
-    return scenario.steps
+    const before = scenario.before || [];
+    const after = scenario.after || [];
+    const steps = scenario.steps || [];
+
+    return before.concat(after, steps)
         .filter(step => step.result.status === 'failed');
 }
 
 function isFailed(scenario) {
     return getFailedSteps(scenario).length > 0;
+}
+
+function buildFailData(fileReport, scenario) {
+    const failedStep = getFailedSteps(scenario)[0];
+    return {
+        file: fileReport.uri,
+        line: failedStep.line, 
+        title: scenario.name,
+        step: failedStep.name,
+        error: failedStep.result.error_message
+    }
 }
