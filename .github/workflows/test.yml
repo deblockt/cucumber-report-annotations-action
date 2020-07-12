@@ -2,15 +2,8 @@ name: Tests
 
 on:
   pull_request:
-  push:
 
 jobs:
-  unit-tests:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v1
-      - run: npm test
-
   ubuntu-action-tests:
     runs-on: ubuntu-latest
     steps:

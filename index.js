@@ -14,7 +14,12 @@ async function findBestFileMatch(file) {
 
     const match = [];
     for await (const featureFile of glober.globGenerator()) {
-        match.push(featureFile);
+        console.log('workspace', JSON.stringify(github.context.repo.repo));
+        const repoName = github.context.repo.repo;
+        const indexOfRepoName = featureFile.indexOf(repoName);
+        // convert /home/...../repoName/repoName/filePath to filePath
+        const filePathWithoutWorkspace = featureFile.substring(indexOfRepoName + repoName.length * 2 + 2);
+        match.push(filePathWithoutWorkspace);
     }
 
     return match[0];
