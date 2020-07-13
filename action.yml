@@ -1,5 +1,8 @@
 name: 'Cucumber Report to Annotations'
 description: 'Create an annotation of the test run summary and also list first n failed tests as seporate annotations'
+branding:
+  icon: check-square
+  color: green
 inputs:
   access-token:
     description: "github token"
@@ -8,11 +11,6 @@ inputs:
     description: "glob to cucumber json files"
     required: true
     default: "**/cucumber-report.json"
-  name:
-    description: "seem not work without that"
-    required: true
-    default: "test"
-
 runs:
   using: 'node12'
   main: 'index.js'
