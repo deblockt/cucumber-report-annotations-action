@@ -14,7 +14,12 @@ async function findBestFileMatch(file) {
 
     const match = [];
     for await (const featureFile of glober.globGenerator()) {
-        match.push(featureFile);
+        console.log('workspace', JSON.stringify(github.context.repo.repo));
+        const repoName = github.context.repo.repo;
+        const indexOfRepoName = featureFile.indexOf(repoName);
+        // convert /home/...../repoName/repoName/filePath to filePath
+        const filePathWithoutWorkspace = featureFile.substring(indexOfRepoName + repoName.length * 2 + 2);
+        match.push(filePathWithoutWorkspace);
     }
 
     return match[0];
@@ -28,11 +33,7 @@ async function buildErrorAnnotations(cucumberError) {
         start_column: 0,
         end_column: 0,
         annotation_level: 'failure',
-        message: `
-        Test Failure: ${cucumberError.title}
-        Step: ${cucumberError.step}
-        Error: ${cucumberError.error}
-        `,
+        message: "Scenario: " + cucumberError.title + "\nStep: " + cucumberError.step + "\nError: \n" + cucumberError.error
     }
 
 }
@@ -54,7 +55,7 @@ async function buildErrorAnnotations(cucumberError) {
         const globalInformation = reportReader.globalInformation(reportResult);
         const summary = `
             ${globalInformation.scenarioNumber} Scenarios (${globalInformation.failedScenarioNumber} failed, ${globalInformation.scenarioNumber - globalInformation.failedScenarioNumber} passed)
-            ${globalInformation.stepsNumber} Steps (${globalInformation.failedStepsNumber} failed, ${globalInformation.stepsNumber - globalInformation.failedStepsNumber} passed)
+            ${globalInformation.stepsNumber} Steps (${globalInformation.failedStepsNumber} failed, ${globalInformation.skippedStepsNumber} skipped, ${globalInformation.succeedStepsNumber} passed)
         `;
         const errors = reportReader.failures(reportResult);
         const errorAnnotations = await Promise.all(errors.map(buildErrorAnnotations));
@@ -68,6 +69,7 @@ async function buildErrorAnnotations(cucumberError) {
                 start_column: 0,
                 end_column: 0,
                 annotation_level: 'notice',
+                title: 'Cucumber repport summary',
                 message: summary,
             },
             ...errorAnnotations
