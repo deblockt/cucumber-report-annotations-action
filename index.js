@@ -33,11 +33,7 @@ async function buildErrorAnnotations(cucumberError) {
         start_column: 0,
         end_column: 0,
         annotation_level: 'failure',
-        message: `
-        Test Failure: ${cucumberError.title}
-        Step: ${cucumberError.step}
-        Error: ${cucumberError.error}
-        `,
+        message: "Scenario: " + cucumberError.title + "\nStep: " + cucumberError.step + "\nError: \n" + cucumberError.error
     }
 
 }
@@ -73,6 +69,7 @@ async function buildErrorAnnotations(cucumberError) {
                 start_column: 0,
                 end_column: 0,
                 annotation_level: 'notice',
+                title: 'Cucumber repport summary',
                 message: summary,
             },
             ...errorAnnotations
