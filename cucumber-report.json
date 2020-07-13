@@ -1,0 +1,105 @@
+[
+  {
+    "keyword": "Feature",
+    "name": "Test with background",
+    "line": 1,
+    "id": "test-with-background",
+    "tags": [],
+    "uri": "cucumber/features/background.feature",
+    "elements": [
+      {
+        "id": "test-with-background;this-scenario-will-fail-because-of-background",
+        "keyword": "Scenario",
+        "line": 6,
+        "name": "This scenario will fail because of background",
+        "tags": [],
+        "type": "scenario",
+        "steps": [
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 4,
+            "name": "this step will fail",
+            "match": {
+              "location": "cucumber/step-definitions/stepdefs.js:4"
+            },
+            "result": {
+              "status": "failed",
+              "duration": 1000000,
+              "error_message": "AssertionError [ERR_ASSERTION]: this step allways fail\n    at World.<anonymous> (/home/tdeblock/Documents/projects/opensource/cucumber-report-annotations-action/cucumber/step-definitions/stepdefs.js:5:12)"
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 7,
+            "name": "this step will success",
+            "match": {
+              "location": "cucumber/step-definitions/stepdefs.js:8"
+            },
+            "result": {
+              "status": "skipped"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "keyword": "Feature",
+    "name": "Test file",
+    "line": 1,
+    "id": "test-file",
+    "tags": [],
+    "uri": "cucumber/features/test.feature",
+    "elements": [
+      {
+        "id": "test-file;scenario-ok",
+        "keyword": "Scenario",
+        "line": 3,
+        "name": "Scenario OK",
+        "tags": [],
+        "type": "scenario",
+        "steps": [
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 4,
+            "name": "this step will success",
+            "match": {
+              "location": "cucumber/step-definitions/stepdefs.js:8"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 0
+            }
+          }
+        ]
+      },
+      {
+        "id": "test-file;scenario-ko",
+        "keyword": "Scenario",
+        "line": 6,
+        "name": "Scenario KO",
+        "tags": [],
+        "type": "scenario",
+        "steps": [
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 7,
+            "name": "this step will fail",
+            "match": {
+              "location": "cucumber/step-definitions/stepdefs.js:4"
+            },
+            "result": {
+              "status": "failed",
+              "duration": 0,
+              "error_message": "AssertionError [ERR_ASSERTION]: this step allways fail\n    at World.<anonymous> (/home/tdeblock/Documents/projects/opensource/cucumber-report-annotations-action/cucumber/step-definitions/stepdefs.js:5:12)"
+            }
+          }
+        ]
+      }
+    ]
+  }
+]
