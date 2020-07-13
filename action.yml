@@ -8,10 +8,6 @@ inputs:
     description: "glob to cucumber json files"
     required: true
     default: "**/cucumber-report.json"
-  name:
-    description: "seem not work without that"
-    required: true
-    default: "test"
 
 runs:
   using: 'node12'
