@@ -11,6 +11,19 @@ inputs:
     description: "glob to cucumber json files"
     required: true
     default: "**/cucumber-report.json"
+  check-status-on-error:
+    description: "the check status to use on cucumber error. Can be 'neutral' or 'failed'"
+    required: true
+    default: 'failure'
+  annotation-status-on-error:
+    description: "the annotation status on error. Can be 'notice', 'warning', 'failure'"
+    require: true
+    default: 'failure'
+  name:
+    description: "the name of the check"
+    require: true
+    default: 'Cucumber report'
+
 runs:
   using: 'node12'
   main: 'index.js'
