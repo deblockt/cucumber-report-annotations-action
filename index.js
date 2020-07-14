@@ -14,7 +14,6 @@ async function findBestFileMatch(file) {
 
     const match = [];
     for await (const featureFile of glober.globGenerator()) {
-        console.log('workspace', JSON.stringify(github.context.repo.repo));
         const repoName = github.context.repo.repo;
         const indexOfRepoName = featureFile.indexOf(repoName);
         // convert /home/...../repoName/repoName/filePath to filePath
@@ -33,9 +32,9 @@ async function buildErrorAnnotations(cucumberError) {
         start_column: 0,
         end_column: 0,
         annotation_level: 'failure',
-        message: "Scenario: " + cucumberError.title + "\nStep: " + cucumberError.step + "\nError: \n" + cucumberError.error
+        title: cucumberError.title + ' Failed.',
+        message: 'Scenario: ' + cucumberError.title + '\nStep: ' + cucumberError.step + '\nError: \n' + cucumberError.error
     }
-
 }
 
 (async() => {
