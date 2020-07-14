@@ -24,22 +24,26 @@ async function findBestFileMatch(file) {
     return match[0];
 }
 
-async function buildErrorAnnotations(cucumberError) {
+async function buildErrorAnnotations(cucumberError, statusOnError) {
     return {
         path: (await findBestFileMatch(cucumberError.file)) || cucumberError.file,
         start_line: cucumberError.line,
         end_line: cucumberError.line,
         start_column: 0,
         end_column: 0,
-        annotation_level: 'failure',
+        annotation_level: statusOnError,
         title: cucumberError.title + ' Failed.',
         message: 'Scenario: ' + cucumberError.title + '\nStep: ' + cucumberError.step + '\nError: \n' + cucumberError.error
     }
 }
 
 (async() => {
-    const inputPath = core.getInput("path");
-    const accessToken = core.getInput("access-token");
+    const inputPath = core.getInput('path');
+    const checkName = core.getInput('name');
+    const accessToken = core.getInput('access-token');
+    const checkStatusOnError = core.getInput('check-status-on-error');
+    const annotationStatusOnError = core.getInput('annotation-status-on-error');
+
     const globber = await glob.create(inputPath, {
         followSymbolicLinks: false,
     });
@@ -57,7 +61,7 @@ async function buildErrorAnnotations(cucumberError) {
             ${globalInformation.stepsNumber} Steps (${globalInformation.failedStepsNumber} failed, ${globalInformation.skippedStepsNumber} skipped, ${globalInformation.succeedStepsNumber} passed)
         `;
         const errors = reportReader.failures(reportResult);
-        const errorAnnotations = await Promise.all(errors.map(buildErrorAnnotations));
+        const errorAnnotations = await Promise.all(errors.map(e => buildErrorAnnotations(e, annotationStatusOnError)));
         const pullRequest = github.context.payload.pull_request;
         const head_sha = (pullRequest && pullRequest.head.sha) || github.context.sha;
         const annotations = [
@@ -71,16 +75,16 @@ async function buildErrorAnnotations(cucumberError) {
                 title: 'Cucumber repport summary',
                 message: summary,
             },
-            ...errorAnnotations
+            ...errorAnnotations 
         ];
         const createCheckRequest = {
             ...github.context.repo,
-            name: 'Cucumber report',
+            name: checkName,
             head_sha,
             status: 'completed',
-            conclusion: errorAnnotations.lenth == 0 ? 'success' : 'failure',
+            conclusion: errorAnnotations.lenth == 0 ? 'success' : checkStatusOnError,
             output: {
-              title: 'Cucumber report',
+              title: checkName,
               summary,
               annotations
             },
