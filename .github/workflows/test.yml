@@ -10,7 +10,16 @@ jobs:
       - uses: actions/checkout@v1
       - run: npm run cucumber || true
       - uses: ./
+        name: "fail because of error"
         with:
-          name: "send cucumber report"
+          name: "failed cucumber report"
           access-token: ${{ secrets.GITHUB_TOKEN }}
           path: "**/cucumber-report.json"
+      - uses: ./
+        name: "neutral because of error"
+        with:
+          name: "neutral cucumber report"
+          access-token: ${{ secrets.GITHUB_TOKEN }}
+          path: "**/cucumber-report.json"
+          check-status-on-error: 'neutral'
+          annotation-status-on-error: 'warning'
