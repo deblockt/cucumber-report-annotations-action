@@ -51,6 +51,7 @@ async function buildErrorAnnotations(cucumberError, statusOnError) {
     core.info("start to read cucumber logs using path " + inputPath);
     
     for await (const cucumberReportFile of globber.globGenerator()) {
+        console.log(github.context)
         core.info("found cucumber report " + cucumberReportFile);
 
         const reportResultString = await fs.promises.readFile(cucumberReportFile);
@@ -78,6 +79,7 @@ async function buildErrorAnnotations(cucumberError, statusOnError) {
             ...errorAnnotations 
         ];
         const createCheckRequest = {
+            check_run_id: github.context.runId,
             ...github.context.repo,
             name: checkName,
             head_sha,
@@ -93,6 +95,6 @@ async function buildErrorAnnotations(cucumberError, statusOnError) {
         core.info(summary);
         core.info("send global cucumber report data");
         const octokit = github.getOctokit(accessToken); 
-        await octokit.checks.create(createCheckRequest);
+        await octokit.checks.update(createCheckRequest);
     }
 })();

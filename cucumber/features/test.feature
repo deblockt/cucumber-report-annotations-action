@@ -6,3 +6,5 @@ Feature: Test file
     Scenario: Scenario KO
         When this step will fail
 
+    Scenario: new Scenario KO
+        When this step will fail

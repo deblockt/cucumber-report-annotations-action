@@ -18,7 +18,7 @@ jobs:
       - uses: ./
         name: "neutral because of error"
         with:
-          name: "neutral cucumber report"
+          name: "ubuntu-action-tests"
           access-token: ${{ secrets.GITHUB_TOKEN }}
           path: "**/cucumber-report.json"
           check-status-on-error: 'neutral'
