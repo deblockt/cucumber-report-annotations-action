@@ -17,6 +17,13 @@ jobs:
           access-token: ${{ secrets.GITHUB_TOKEN }}
           path: "**/cucumber-report.json"
       - uses: ./
+        name: "fail because of error (without number of error)"
+        with:
+          name: "failed (no number of error)"
+          access-token: ${{ secrets.GITHUB_TOKEN }}
+          path: "**/cucumber-report.json"
+          show-number-of-error-on-check-title: false
+      - uses: ./
         name: "neutral because of error"
         with:
           name: "neutral cucumber report"

@@ -43,6 +43,7 @@ async function buildErrorAnnotations(cucumberError, statusOnError) {
     const accessToken = core.getInput('access-token');
     const checkStatusOnError = core.getInput('check-status-on-error');
     const annotationStatusOnError = core.getInput('annotation-status-on-error');
+    const showNumberOfErrorOnCheckTitle = core.getInput('show-number-of-error-on-check-title');
 
     const globber = await glob.create(inputPath, {
         followSymbolicLinks: false,
@@ -77,6 +78,10 @@ async function buildErrorAnnotations(cucumberError, statusOnError) {
             },
             ...errorAnnotations 
         ];
+        var additionnalTitleInfo = '';
+        if (showNumberOfErrorOnCheckTitle == 'true' && errorAnnotations.length > 0) {
+            additionnalTitleInfo = ` (${errorAnnotations.length} error${errorAnnotations.length > 1 ? 's': ''})`;
+        }
         const createCheckRequest = {
             ...github.context.repo,
             name: checkName,
@@ -84,7 +89,7 @@ async function buildErrorAnnotations(cucumberError, statusOnError) {
             status: 'completed',
             conclusion: errorAnnotations.length == 0 ? 'success' : checkStatusOnError,
             output: {
-              title: checkName,
+              title: checkName + additionnalTitleInfo,
               summary,
               annotations
             },
