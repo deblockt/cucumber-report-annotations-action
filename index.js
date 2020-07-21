@@ -82,7 +82,7 @@ async function buildErrorAnnotations(cucumberError, statusOnError) {
             name: checkName,
             head_sha,
             status: 'completed',
-            conclusion: errorAnnotations.lenth == 0 ? 'success' : checkStatusOnError,
+            conclusion: errorAnnotations.length == 0 ? 'success' : checkStatusOnError,
             output: {
               title: checkName,
               summary,
