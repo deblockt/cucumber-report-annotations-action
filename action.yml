@@ -19,6 +19,10 @@ inputs:
     description: "the annotation status on error. Can be 'notice', 'warning', 'failure'"
     require: true
     default: 'failure'
+  show-number-of-error-on-check-title:
+    description: "if it is set to true, the number of errors will be indicated on the check title (visible on the pr check)"
+    require: true
+    default: 'true'
   name:
     description: "the name of the check"
     require: true
