@@ -9,6 +9,7 @@ jobs:
     steps:
       - uses: actions/checkout@v1
       - run: npm run cucumber || true
+      - run: npm run cucumber-ok || true
       - uses: ./
         name: "fail because of error"
         with:
@@ -21,5 +22,13 @@ jobs:
           name: "neutral cucumber report"
           access-token: ${{ secrets.GITHUB_TOKEN }}
           path: "**/cucumber-report.json"
+          check-status-on-error: 'neutral'
+          annotation-status-on-error: 'warning'
+      - uses: ./
+        name: "sucess because all is ok"
+        with:
+          name: "success cucumber report"
+          access-token: ${{ secrets.GITHUB_TOKEN }}
+          path: "**/cucumber-report-ok.json"
           check-status-on-error: 'neutral'
           annotation-status-on-error: 'warning'
