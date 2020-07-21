@@ -1,5 +1,6 @@
 Feature: Test file 
 
+    @SuccessTest
     Scenario: Scenario OK
         When this step will success
 
