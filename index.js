@@ -62,7 +62,9 @@ async function buildErrorAnnotations(cucumberError, statusOnError) {
             ${globalInformation.stepsNumber} Steps (${globalInformation.failedStepsNumber} failed, ${globalInformation.skippedStepsNumber} skipped, ${globalInformation.succeedStepsNumber} passed)
         `;
         const errors = reportReader.failures(reportResult);
-        const errorAnnotations = await Promise.all(errors.map(e => buildErrorAnnotations(e, annotationStatusOnError)));
+        var errorAnnotations = await Promise.all(errors.map(e => buildErrorAnnotations(e, annotationStatusOnError)));
+        // TODO make an update request if there are more than 50 annotations
+        errorAnnotations = errorAnnotations.slice(0, 49);
         const pullRequest = github.context.payload.pull_request;
         const head_sha = (pullRequest && pullRequest.head.sha) || github.context.sha;
         const annotations = [
@@ -79,8 +81,8 @@ async function buildErrorAnnotations(cucumberError, statusOnError) {
             ...errorAnnotations 
         ];
         var additionnalTitleInfo = '';
-        if (showNumberOfErrorOnCheckTitle == 'true' && errorAnnotations.length > 0) {
-            additionnalTitleInfo = ` (${errorAnnotations.length} error${errorAnnotations.length > 1 ? 's': ''})`;
+        if (showNumberOfErrorOnCheckTitle == 'true' && globalInformation.failedScenarioNumber > 0) {
+            additionnalTitleInfo = ` (${globalInformation.failedScenarioNumber} error${globalInformation.failedScenarioNumber > 1 ? 's': ''})`;
         }
         const createCheckRequest = {
             ...github.context.repo,
