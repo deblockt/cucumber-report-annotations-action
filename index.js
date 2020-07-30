@@ -37,14 +37,29 @@ async function buildErrorAnnotations(cucumberError, statusOnError) {
     }
 }
 
+async function buildUndefinedAnnotation(cucumberError, statusOnSkipped) {
+    return {
+        path: (await findBestFileMatch(cucumberError.file)) || cucumberError.file,
+        start_line: cucumberError.line,
+        end_line: cucumberError.line,
+        start_column: 0,
+        end_column: 0,
+        annotation_level: statusOnSkipped,
+        title: cucumberError.title + ' Undefined.',
+        message: 'Scenario: ' + cucumberError.title + '\nStep: ' + cucumberError.step
+    }   
+}
+
 (async() => {
     const inputPath = core.getInput('path');
     const checkName = core.getInput('name');
     const accessToken = core.getInput('access-token');
     const checkStatusOnError = core.getInput('check-status-on-error');
+    const checkStatusOnUndefined = core.getInput('check-status-on-undefined');
     const annotationStatusOnError = core.getInput('annotation-status-on-error');
+    const annotationStatusOnUndefined = core.getInput('annotation-status-on-undefined');
     const showNumberOfErrorOnCheckTitle = core.getInput('show-number-of-error-on-check-title');
-
+    
     const globber = await glob.create(inputPath, {
         followSymbolicLinks: false,
     });
@@ -59,10 +74,16 @@ async function buildErrorAnnotations(cucumberError, statusOnError) {
         const globalInformation = reportReader.globalInformation(reportResult);
         const summary = `
             ${globalInformation.scenarioNumber} Scenarios (${globalInformation.failedScenarioNumber} failed, ${globalInformation.scenarioNumber - globalInformation.failedScenarioNumber} passed)
-            ${globalInformation.stepsNumber} Steps (${globalInformation.failedStepsNumber} failed, ${globalInformation.skippedStepsNumber} skipped, ${globalInformation.succeedStepsNumber} passed)
+            ${globalInformation.stepsNumber} Steps (${globalInformation.failedStepsNumber} failed, ${globalInformation.undefinedStepsNumber} undefined, ${globalInformation.skippedStepsNumber} skipped, ${globalInformation.succeedStepsNumber} passed)
         `;
         const errors = reportReader.failures(reportResult);
         var errorAnnotations = await Promise.all(errors.map(e => buildErrorAnnotations(e, annotationStatusOnError)));
+        if (annotationStatusOnUndefined) {
+            const undefined = reportReader.updefined(reportResult);
+            var undefinedAnnotations = await Promise.all(undefined.map(e => buildUndefinedAnnotation(e, annotationStatusOnUndefined)));
+            errorAnnotations.push(...undefinedAnnotations);
+        }
+
         // TODO make an update request if there are more than 50 annotations
         errorAnnotations = errorAnnotations.slice(0, 49);
         const pullRequest = github.context.payload.pull_request;
@@ -84,12 +105,20 @@ async function buildErrorAnnotations(cucumberError, statusOnError) {
         if (showNumberOfErrorOnCheckTitle == 'true' && globalInformation.failedScenarioNumber > 0) {
             additionnalTitleInfo = ` (${globalInformation.failedScenarioNumber} error${globalInformation.failedScenarioNumber > 1 ? 's': ''})`;
         }
+        var checkStatus = '';
+        if (globalInformation.failedScenarioNumber > 0) {
+            checkStatus = checkStatusOnError;
+        } else if (globalInformation.undefinedStepsNumber > 0) {
+            checkStatus = checkStatusOnUndefined;
+        } else {
+            checkStatus = 'success';
+        }
         const createCheckRequest = {
             ...github.context.repo,
             name: checkName,
             head_sha,
             status: 'completed',
-            conclusion: errorAnnotations.length == 0 ? 'success' : checkStatusOnError,
+            conclusion: checkStatus,
             output: {
               title: checkName + additionnalTitleInfo,
               summary,

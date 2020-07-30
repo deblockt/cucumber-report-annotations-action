@@ -12,13 +12,20 @@ inputs:
     required: true
     default: "**/cucumber-report.json"
   check-status-on-error:
-    description: "the check status to use on cucumber error. Can be 'neutral' or 'failed'"
+    description: "the check status to use on cucumber error. Can be 'success', 'neutral' or 'failure'"
     required: true
     default: 'failure'
+  check-status-on-undefined:
+    description: "the check status to use on cucumber undefined steps. Can be 'success', 'neutral' or 'failure'"
+    required: true
+    default: 'success'
   annotation-status-on-error:
     description: "the annotation status on error. Can be 'notice', 'warning', 'failure'"
     require: true
     default: 'failure'
+  annotation-status-on-undefined:
+    description: "the annotation status on undefined steps. Can be 'notice', 'warning', 'failure'. if this property is not set, no annotation will be generated for undefined steps"
+    require: false
   show-number-of-error-on-check-title:
     description: "if it is set to true, the number of errors will be indicated on the check title (visible on the pr check)"
     require: true
