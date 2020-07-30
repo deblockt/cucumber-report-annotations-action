@@ -6,7 +6,8 @@
   "scripts": {
     "test": "mocha **/*.spec.js",
     "cucumber": "cucumber-js cucumber --format json:cucumber-report.json --require '**/step-definitions/**/*.js'",
-    "cucumber-ok": "cucumber-js cucumber --format json:cucumber-report-ok.json --require '**/step-definitions/**/*.js' --tags @SuccessTest"
+    "cucumber-ok": "cucumber-js cucumber --format json:cucumber-report-ok.json --require '**/step-definitions/**/*.js' --tags @SuccessTest",
+    "cucumber-undefined": "cucumber-js cucumber --format json:cucumber-report-undefined.json --require '**/step-definitions/**/*.js' --tags @UndefinedStepTest"
   },
   "repository": {
     "type": "git",
