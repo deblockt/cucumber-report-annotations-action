@@ -96,7 +96,7 @@ async function buildUndefinedAnnotation(cucumberError, statusOnSkipped) {
                 start_column: 0,
                 end_column: 0,
                 annotation_level: 'notice',
-                title: 'Cucumber repport summary',
+                title: 'Cucumber report summary',
                 message: summary,
             },
             ...errorAnnotations 
