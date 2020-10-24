@@ -24,30 +24,29 @@ async function findBestFileMatch(file) {
     return match[0];
 }
 
-async function buildErrorAnnotations(cucumberError, statusOnError) {
+async function buildStepAnnotation(cucumberError, status, errorType) {
     return {
         path: (await findBestFileMatch(cucumberError.file)) || cucumberError.file,
         start_line: cucumberError.line,
         end_line: cucumberError.line,
         start_column: 0,
         end_column: 0,
-        annotation_level: statusOnError,
-        title: cucumberError.title + ' Failed.',
+        annotation_level: status,
+        title: cucumberError.title + ' ' + errorType + '.',
         message: 'Scenario: ' + cucumberError.title + '\nStep: ' + cucumberError.step + '\nError: \n' + cucumberError.error
     }
 }
 
+async function buildErrorAnnotations(cucumberError, statusOnError) {
+    return buildStepAnnotation(cucumberError, statusOnError, 'Failed');
+}
+
 async function buildUndefinedAnnotation(cucumberError, statusOnSkipped) {
-    return {
-        path: (await findBestFileMatch(cucumberError.file)) || cucumberError.file,
-        start_line: cucumberError.line,
-        end_line: cucumberError.line,
-        start_column: 0,
-        end_column: 0,
-        annotation_level: statusOnSkipped,
-        title: cucumberError.title + ' Undefined.',
-        message: 'Scenario: ' + cucumberError.title + '\nStep: ' + cucumberError.step
-    }   
+    return buildStepAnnotation(cucumberError, statusOnSkipped, 'Undefined');
+}
+
+async function buildPendingAnnotation(cucumberError, statusOnPending) {
+    return buildStepAnnotation(cucumberError, statusOnPending, 'Pending');
 }
 
 (async() => {
@@ -56,8 +55,10 @@ async function buildUndefinedAnnotation(cucumberError, statusOnSkipped) {
     const accessToken = core.getInput('access-token');
     const checkStatusOnError = core.getInput('check-status-on-error');
     const checkStatusOnUndefined = core.getInput('check-status-on-undefined');
+    const checkStatusOnPending = core.getInput('check-status-on-pending');
     const annotationStatusOnError = core.getInput('annotation-status-on-error');
     const annotationStatusOnUndefined = core.getInput('annotation-status-on-undefined');
+    const annotationStatusOnPending = core.getInput('annotation-status-on-pending');
     const showNumberOfErrorOnCheckTitle = core.getInput('show-number-of-error-on-check-title');
     
     const globber = await glob.create(inputPath, {
@@ -73,15 +74,20 @@ async function buildUndefinedAnnotation(cucumberError, statusOnSkipped) {
         const reportResult = JSON.parse(reportResultString);
         const globalInformation = reportReader.globalInformation(reportResult);
         const summary = `
-            ${globalInformation.scenarioNumber} Scenarios (${globalInformation.failedScenarioNumber} failed, ${globalInformation.scenarioNumber - globalInformation.failedScenarioNumber} passed)
-            ${globalInformation.stepsNumber} Steps (${globalInformation.failedStepsNumber} failed, ${globalInformation.undefinedStepsNumber} undefined, ${globalInformation.skippedStepsNumber} skipped, ${globalInformation.succeedStepsNumber} passed)
+            ${globalInformation.scenarioNumber} Scenarios (${globalInformation.failedScenarioNumber} failed, ${globalInformation.undefinedScenarioNumber} undefined, ${globalInformation.pendingScenarioNumber} pending, ${globalInformation.succeedScenarioNumber} passed)
+            ${globalInformation.stepsNumber} Steps (${globalInformation.failedStepsNumber} failed, ${globalInformation.undefinedStepsNumber} undefined, ${globalInformation.skippedStepsNumber} skipped, ${globalInformation.pendingStepNumber} pending, ${globalInformation.succeedStepsNumber} passed)
         `;
-        const errors = reportReader.failures(reportResult);
+        const errors = reportReader.failedSteps(reportResult);
         var errorAnnotations = await Promise.all(errors.map(e => buildErrorAnnotations(e, annotationStatusOnError)));
         if (annotationStatusOnUndefined) {
-            const undefined = reportReader.updefined(reportResult);
+            const undefined = reportReader.undefinedSteps(reportResult);
             var undefinedAnnotations = await Promise.all(undefined.map(e => buildUndefinedAnnotation(e, annotationStatusOnUndefined)));
             errorAnnotations.push(...undefinedAnnotations);
+        }
+        if (annotationStatusOnPending) {
+            const pending = reportReader.pendingSteps(reportResult);
+            var pendingAnnotations = await Promise.all(pending.map(e => buildPendingAnnotation(e, annotationStatusOnPending)));
+            errorAnnotations.push(...pendingAnnotations);
         }
 
         // TODO make an update request if there are more than 50 annotations
@@ -106,10 +112,12 @@ async function buildUndefinedAnnotation(cucumberError, statusOnSkipped) {
             additionnalTitleInfo = ` (${globalInformation.failedScenarioNumber} error${globalInformation.failedScenarioNumber > 1 ? 's': ''})`;
         }
         var checkStatus = '';
-        if (globalInformation.failedScenarioNumber > 0) {
+        if (globalInformation.failedScenarioNumber > 0 && checkStatusOnError !== 'success') {
             checkStatus = checkStatusOnError;
-        } else if (globalInformation.undefinedStepsNumber > 0) {
+        } else if (globalInformation.undefinedStepsNumber > 0 && checkStatusOnUndefined !== 'success') {
             checkStatus = checkStatusOnUndefined;
+        } else if (globalInformation.pendingStepNumber > 0) {
+            checkStatus = checkStatusOnPending;
         } else {
             checkStatus = 'success';
         }
