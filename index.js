@@ -73,10 +73,24 @@ async function buildPendingAnnotation(cucumberError, statusOnPending) {
         const reportResultString = await fs.promises.readFile(cucumberReportFile);
         const reportResult = JSON.parse(reportResultString);
         const globalInformation = reportReader.globalInformation(reportResult);
-        const summary = `
-            ${globalInformation.scenarioNumber} Scenarios (${globalInformation.failedScenarioNumber} failed, ${globalInformation.undefinedScenarioNumber} undefined, ${globalInformation.pendingScenarioNumber} pending, ${globalInformation.succeedScenarioNumber} passed)
-            ${globalInformation.stepsNumber} Steps (${globalInformation.failedStepsNumber} failed, ${globalInformation.undefinedStepsNumber} undefined, ${globalInformation.skippedStepsNumber} skipped, ${globalInformation.pendingStepNumber} pending, ${globalInformation.succeedStepsNumber} passed)
-        `;
+        const summaryScenario = {
+            'failed': globalInformation.failedScenarioNumber,
+            'undefined': globalInformation.undefinedScenarioNumber,
+            'pending': globalInformation.pendingScenarioNumber,
+            'passed': globalInformation.succeedScenarioNumber
+        };
+        const summarySteps = {
+            'failed': globalInformation.failedStepsNumber,
+            'undefined': globalInformation.undefinedStepsNumber,
+            'skipped': globalInformation.skippedStepsNumber,
+            'pending': globalInformation.pendingStepNumber,
+            'passed': globalInformation.succeedStepsNumber
+        };
+        const summary = 
+               buildSummary(globalInformation.scenarioNumber, 'Scenarios', summaryScenario) 
+            + '\n' 
+            + buildSummary(globalInformation.stepsNumber, 'Steps', summarySteps);
+
         const errors = reportReader.failedSteps(reportResult);
         var errorAnnotations = await Promise.all(errors.map(e => buildErrorAnnotations(e, annotationStatusOnError)));
         if (annotationStatusOnUndefined) {
@@ -140,3 +154,12 @@ async function buildPendingAnnotation(cucumberError, statusOnPending) {
         await octokit.checks.create(createCheckRequest);
     }
 })();
+
+function buildSummary(itemNumber, itemType, itemCounts) {
+    const header = itemNumber + ' ' + itemType;
+    const counts = Object.keys(itemCounts)
+        .filter(key => itemCounts[key] > 0)
+        .map(key => itemCounts[key] + ' ' + key)
+        .join(', ');
+    return `    ${header} (${counts})`;
+}
