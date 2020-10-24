@@ -7,3 +7,7 @@ When('this step will fail', function () {
 
 When('this step will success', function () {
 });
+
+When('this step is pending', function() {
+    return 'pending';
+})

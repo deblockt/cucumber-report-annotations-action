@@ -1,5 +1,6 @@
 Feature: Test file 
 
+    @NonFailedTest
     @SuccessTest
     Scenario: Scenario OK
         When this step will success
@@ -9,6 +10,12 @@ Feature: Test file
         When this step will fail
 
     @SuccessTest
+    @NonFailedTest
     @UndefinedStepTest
     Scenario: Scenario with undefined step
+        Given this step will success
         When this step is undefined
+
+    @NonFailedTest
+    Scenario: Scenario with pending step
+        When this step is pending

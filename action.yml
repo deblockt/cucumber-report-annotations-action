@@ -19,12 +19,19 @@ inputs:
     description: "the check status to use on cucumber undefined steps. Can be 'success', 'neutral' or 'failure'"
     required: true
     default: 'success'
+  check-status-on-pending:
+    description: "the check status to use on cucumber pending steps. Can be 'success', 'neutral' or 'failure'"
+    required: true
+    default: 'success'
   annotation-status-on-error:
     description: "the annotation status on error. Can be 'notice', 'warning', 'failure'"
     require: true
     default: 'failure'
   annotation-status-on-undefined:
     description: "the annotation status on undefined steps. Can be 'notice', 'warning', 'failure'. if this property is not set, no annotation will be generated for undefined steps"
+    require: false
+  annotation-status-on-pending:
+    description: "the annotation status on pending steps. Can be 'notice', 'warning', 'failure'. if this property is not set, no annotation will be generated for pending steps"
     require: false
   show-number-of-error-on-check-title:
     description: "if it is set to true, the number of errors will be indicated on the check title (visible on the pr check)"
