@@ -11,6 +11,7 @@ jobs:
       - run: npm run cucumber || true
       - run: npm run cucumber-ok || true
       - run: npm run cucumber-undefined || true
+      - run: npm run cucumber-non-failed || true
       - uses: ./
         name: "fail because of error"
         with:
@@ -29,9 +30,17 @@ jobs:
         with:
           name: "failed because of undefined test"
           access-token: ${{ secrets.GITHUB_TOKEN }}
-          path: "**/cucumber-report-undefined.json"
+          path: "**/cucumber-report-non-failed.json"
           check-status-on-undefined: "failure"
           annotation-status-on-undefined: "failure"
+      - uses: ./
+        name: "fail because of pending test"
+        with:
+          name: "failed because of pending test"
+          access-token: ${{ secrets.GITHUB_TOKEN }}
+          path: "**/cucumber-report-non-failed.json"
+          check-status-on-pending: "failure"
+          annotation-status-on-pending: "failure"     
       - uses: ./
         name: "neutral because of error"
         with:
