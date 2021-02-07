@@ -152,6 +152,24 @@ async function buildPendingAnnotation(cucumberError, statusOnPending) {
         core.info("send global cucumber report data");
         const octokit = github.getOctokit(accessToken); 
         await octokit.checks.create(createCheckRequest);
+
+        const result = await octokit.checks.listForRef({
+            ...github.context.repo,
+            ref: head_sha
+        });
+        
+        const toUpdate = result.data.check_runs.filter(check => check.name == 'ubuntu-action-tests')[0];
+        await octokit.checks.update({
+            ...github.context.repo,
+            check_run_id: toUpdate.id,
+            conclusion: 'failure',
+            output: {
+                title: "ubuntu-action-tests - tests", 
+                summary: toUpdate.output.summary + "\ntest"
+            }
+        })
+
+        console.log(result);
     }
 })();
 
