@@ -4,29 +4,42 @@ const glob = require("@actions/glob");
 const fs = require("fs");
 const reportReader = require('./reportReader');
 
-async function findBestFileMatch(file) {
-    if (file.startsWith('classpath:')) {
-        file = file.substring(10);
+function memoize(fn) {
+    const cache = {};
+
+    return (...args) => {
+        let argsString = JSON.stringify(args);
+        return argsString in cache
+          ? cache[argsString]
+          : (cache[argsString] = fn(...args));
     }
-    const glober = await glob.create('**/' + file, {
+}
+
+async function findBestFileMatch(file) {
+    let searchFile = file;
+    if (searchFile.startsWith('classpath:')) {
+        searchFile = searchFile.substring(10);
+    }
+    const globber = await glob.create('**/' + searchFile, {
         followSymbolicLinks: false,
     });
-
-    const match = [];
-    for await (const featureFile of glober.globGenerator()) {
+    const files = await globber.glob()
+    if (files.length > 0) {
+        const featureFile = files[0];
         const repoName = github.context.repo.repo;
         const indexOfRepoName = featureFile.indexOf(repoName);
-        // convert /home/...../repoName/repoName/filePath to filePath
         const filePathWithoutWorkspace = featureFile.substring(indexOfRepoName + repoName.length * 2 + 2);
-        match.push(filePathWithoutWorkspace);
+        return filePathWithoutWorkspace;
     }
 
-    return match[0];
+    return undefined;
 }
+
+const memoizedFindBestFileMatch = memoize(findBestFileMatch)
 
 async function buildStepAnnotation(cucumberError, status, errorType) {
     return {
-        path: (await findBestFileMatch(cucumberError.file)) || cucumberError.file,
+        path: (await memoizedFindBestFileMatch(cucumberError.file)) || cucumberError.file,
         start_line: cucumberError.line,
         end_line: cucumberError.line,
         start_column: 0,
@@ -38,15 +51,15 @@ async function buildStepAnnotation(cucumberError, status, errorType) {
 }
 
 async function buildErrorAnnotations(cucumberError, statusOnError) {
-    return buildStepAnnotation(cucumberError, statusOnError, 'Failed');
+    return await buildStepAnnotation(cucumberError, statusOnError, 'Failed');
 }
 
 async function buildUndefinedAnnotation(cucumberError, statusOnSkipped) {
-    return buildStepAnnotation(cucumberError, statusOnSkipped, 'Undefined');
+    return await buildStepAnnotation(cucumberError, statusOnSkipped, 'Undefined');
 }
 
 async function buildPendingAnnotation(cucumberError, statusOnPending) {
-    return buildStepAnnotation(cucumberError, statusOnPending, 'Pending');
+    return await buildStepAnnotation(cucumberError, statusOnPending, 'Pending');
 }
 
 (async() => {
@@ -60,13 +73,13 @@ async function buildPendingAnnotation(cucumberError, statusOnPending) {
     const annotationStatusOnUndefined = core.getInput('annotation-status-on-undefined');
     const annotationStatusOnPending = core.getInput('annotation-status-on-pending');
     const showNumberOfErrorOnCheckTitle = core.getInput('show-number-of-error-on-check-title');
-    
+
     const globber = await glob.create(inputPath, {
         followSymbolicLinks: false,
     });
 
     core.info("start to read cucumber logs using path " + inputPath);
-    
+
     for await (const cucumberReportFile of globber.globGenerator()) {
         core.info("found cucumber report " + cucumberReportFile);
 
@@ -86,13 +99,14 @@ async function buildPendingAnnotation(cucumberError, statusOnPending) {
             'pending': globalInformation.pendingStepNumber,
             'passed': globalInformation.succeedStepsNumber
         };
-        const summary = 
-               buildSummary(globalInformation.scenarioNumber, 'Scenarios', summaryScenario) 
-            + '\n' 
+        const summary =
+               buildSummary(globalInformation.scenarioNumber, 'Scenarios', summaryScenario)
+            + '\n'
             + buildSummary(globalInformation.stepsNumber, 'Steps', summarySteps);
 
         const errors = reportReader.failedSteps(reportResult);
         var errorAnnotations = await Promise.all(errors.map(e => buildErrorAnnotations(e, annotationStatusOnError)));
+
         if (annotationStatusOnUndefined) {
             const undefined = reportReader.undefinedSteps(reportResult);
             var undefinedAnnotations = await Promise.all(undefined.map(e => buildUndefinedAnnotation(e, annotationStatusOnUndefined)));
@@ -119,8 +133,9 @@ async function buildPendingAnnotation(cucumberError, statusOnPending) {
                 title: 'Cucumber report summary',
                 message: summary,
             },
-            ...errorAnnotations 
+            ...errorAnnotations
         ];
+
         var additionnalTitleInfo = '';
         if (showNumberOfErrorOnCheckTitle == 'true' && globalInformation.failedScenarioNumber > 0) {
             additionnalTitleInfo = ` (${globalInformation.failedScenarioNumber} error${globalInformation.failedScenarioNumber > 1 ? 's': ''})`;
@@ -149,8 +164,9 @@ async function buildPendingAnnotation(cucumberError, statusOnPending) {
           };
 
         core.info(summary);
+
         core.info("send global cucumber report data");
-        const octokit = github.getOctokit(accessToken); 
+        const octokit = github.getOctokit(accessToken);
         await octokit.checks.create(createCheckRequest);
     }
 })();
