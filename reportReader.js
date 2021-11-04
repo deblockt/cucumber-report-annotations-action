@@ -4,7 +4,7 @@ module.exports.globalInformation = (report) => {
     return report
         .map(fileReport => globalFileInformation(fileReport))
         .reduce((a, b) => sum(a, b));
-} 
+}
 
 module.exports.failedSteps = (report) => {
     return report
@@ -98,10 +98,9 @@ function globalFileInformation(reportFile) {
         skippedStepsNumber: skippedStepsNumber,
         undefinedStepsNumber: undefinedStepsNumber,
         pendingStepNumber: pendingStepNumber,
-        succeedStepsNumber: stepsNumber - failedStepsNumber - skippedStepsNumber - undefinedStepsNumber - pendingStepNumber 
+        succeedStepsNumber: stepsNumber - failedStepsNumber - skippedStepsNumber - undefinedStepsNumber - pendingStepNumber
     };
 
-    console.log(result)
     return result;
 }
 
@@ -155,7 +154,7 @@ function buildStepData(fileReport, scenario, getStepsFunction) {
     const skippedStep = getStepsFunction(scenario)[0];
     return {
         file: fileReport.uri,
-        line: skippedStep.line, 
+        line: skippedStep.line,
         title: scenario.name,
         step: skippedStep.name,
         error: skippedStep.result.error_message
