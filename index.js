@@ -73,6 +73,8 @@ async function buildPendingAnnotation(cucumberError, statusOnPending) {
     const annotationStatusOnUndefined = core.getInput('annotation-status-on-undefined');
     const annotationStatusOnPending = core.getInput('annotation-status-on-pending');
     const showNumberOfErrorOnCheckTitle = core.getInput('show-number-of-error-on-check-title');
+    const run_id = process.env.GITHUB_RUN_ID;
+    core.info("run_id = " + run_id);
 
     const globber = await glob.create(inputPath, {
         followSymbolicLinks: false,
