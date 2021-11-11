@@ -2,6 +2,10 @@ name: Tests
 
 on:
   pull_request:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
 
 jobs:
   ubuntu-action-tests:
