@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  ubuntu-action-tests:
+  js-action-tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1
@@ -70,3 +70,24 @@ jobs:
           path: "**/cucumber-report-ok.json"
           check-status-on-error: 'neutral'
           annotation-status-on-error: 'warning'
+  ruby-action-tests:
+      runs-on: ubuntu-latest
+      steps:
+        - uses: actions/checkout@v1
+        - uses: ruby/setup-ruby@v1
+          with:
+            ruby-version: 2.6
+        - name: install ruby deps
+          run: |
+            cd cucumber/ruby
+            bundle install
+        - name: run cucumber
+          run: |
+            cd cucumber/ruby
+            bundle exec cucumber --format json --out report.json || true
+        - uses: ./
+          name: "ruby with failure"
+          with:
+            name: "failed ruby cucumber report"
+            access-token: ${{ secrets.GITHUB_TOKEN }}
+            path: "cucumber/ruby/report.json"
