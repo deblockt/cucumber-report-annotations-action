@@ -40,8 +40,8 @@ const memoizedFindBestFileMatch = memoize(findBestFileMatch)
 async function buildStepAnnotation(cucumberError, status, errorType) {
     return {
         path: (await memoizedFindBestFileMatch(cucumberError.file)) || cucumberError.file,
-        start_line: cucumberError.line,
-        end_line: cucumberError.line,
+        start_line: cucumberError.line || 0,
+        end_line: cucumberError.line || 0,
         start_column: 0,
         end_column: 0,
         annotation_level: status,
