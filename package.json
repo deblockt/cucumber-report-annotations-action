@@ -4,6 +4,7 @@
   "description": "This action should be used to publish action annotations from cucumber json report.",
   "main": "index.js",
   "scripts": {
+    "build": "ncc build --source-map index.js",
     "test": "mocha **/*.spec.js",
     "cucumber": "cucumber-js cucumber --format json:cucumber-report.json --require '**/step-definitions/**/*.js'",
     "cucumber-ok": "cucumber-js cucumber --format json:cucumber-report-ok.json --require '**/step-definitions/**/*.js' --tags @SuccessTest",
@@ -24,11 +25,10 @@
   "dependencies": {
     "@actions/core": "^1.2.6",
     "@actions/github": "^4.0.0",
-    "@actions/glob": "^0.1.2",
-    "expect.js": "^0.3.1",
-    "mocha": "^8.4.0"
+    "@actions/glob": "^0.1.2"
   },
   "devDependencies": {
+    "@vercel/ncc": "^0.34.0",
     "cucumber": "^6.0.5"
   }
 }
