@@ -123,16 +123,6 @@ async function buildPendingAnnotation(cucumberError, statusOnPending) {
         const pullRequest = github.context.payload.pull_request;
         const head_sha = (pullRequest && pullRequest.head.sha) || github.context.sha;
         const annotations = [
-            {
-                path: "test",
-                start_line: 0,
-                end_line: 0,
-                start_column: 0,
-                end_column: 0,
-                annotation_level: 'notice',
-                title: 'Cucumber report summary',
-                message: summary,
-            },
             ...errorAnnotations
         ];
 
@@ -163,9 +153,13 @@ async function buildPendingAnnotation(cucumberError, statusOnPending) {
             },
           };
 
-        core.info(summary);
+        core.info('Creating summary: ' + summary);
+        await core.summary
+          .addHeading(checkName + additionnalTitleInfo, 4)
+          .addRaw("\n" + summary)
+          .write()
 
-        core.info("send global cucumber report data");
+        core.info('Sending cucumber annotations');
         const octokit = github.getOctokit(accessToken);
         await octokit.checks.create(createCheckRequest);
     }
