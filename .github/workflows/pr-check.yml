@@ -1,0 +1,20 @@
+name: PR check
+
+on:
+  pull_request:
+
+jobs:
+  check-build-files-in-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - run: npm ci
+      - run: npm run build
+      - name: Confirm new build included in commit
+        # language=bash
+        run: |
+          # Confirm that the dist was built, and changes included in the commit
+          if [ $(git status --porcelain dist/index.js | wc -l) -eq "1" ]; then
+            echo "::error title=Build not committed::Running 'npm run build' changes 'dist/index.js' - build locally and add changes to commit."
+            exit 1
+          fi
