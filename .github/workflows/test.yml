@@ -28,6 +28,7 @@ jobs:
       - run: npm run cucumber-ok || true
       - run: npm run cucumber-undefined || true
       - run: npm run cucumber-non-failed || true
+      - run: npm run cucumber-empty || true
       - uses: ./
         name: "fail because of error"
         with:
@@ -82,3 +83,9 @@ jobs:
           path: "**/cucumber-report-ok.json"
           check-status-on-error: 'neutral'
           annotation-status-on-error: 'warning'
+      - uses: ./
+        name: "success with empty cucumber report"
+        with:
+          name: "success empty report"
+          access-token: ${{ secrets.GITHUB_TOKEN }}
+          path: "**/cucumber-report-empty.json"
