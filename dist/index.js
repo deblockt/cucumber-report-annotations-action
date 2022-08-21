@@ -11817,14 +11817,26 @@ function wrappy (fn, cb) {
 /***/ }),
 
 /***/ 4010:
-/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+/***/ ((module) => {
 
-const { info } = __nccwpck_require__(2186);
+const EMPTY_GLOBAL_INFO = {
+    scenarioNumber: 0,
+    failedScenarioNumber: 0,
+    pendingScenarioNumber: 0,
+    undefinedScenarioNumber: 0,
+    stepsNumber: 0,
+    succeedScenarioNumber: 0,
+    failedStepsNumber: 0,
+    skippedStepsNumber: 0,
+    undefinedStepsNumber: 0,
+    succeedStepsNumber: 0,
+    pendingStepNumber: 0
+}
 
 module.exports.globalInformation = (report) => {
     return report
         .map(fileReport => globalFileInformation(fileReport))
-        .reduce((a, b) => sum(a, b));
+        .reduce((a, b) => sum(a, b), EMPTY_GLOBAL_INFO);
 }
 
 module.exports.failedSteps = (report) => {
