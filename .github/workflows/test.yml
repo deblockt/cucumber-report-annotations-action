@@ -89,3 +89,20 @@ jobs:
           name: "success empty report"
           access-token: ${{ secrets.GITHUB_TOKEN }}
           path: "**/cucumber-report-empty.json"
+      - uses: ./
+        id: job-failed
+        continue-on-error: true
+        name: "fail job due to failed test"
+        with:
+          name: "fail job due to failed test"
+          access-token: ${{ secrets.GITHUB_TOKEN }}
+          path: "**/cucumber-report-non-failed.json"
+          check-status-on-pending: "failure"
+          annotation-status-on-pending: "failure"
+          number-of-test-error-to-fail-job: 1
+      - name: 'check that job-failed outcome is failed'
+        if: steps.job-failed.outcome == 'failure'
+        run: exit 0
+      - name: 'check that job-failed outcome is failed'
+        if: steps.job-failed.outcome != 'failure'
+        run: exit 1
