@@ -99,7 +99,7 @@ jobs:
           path: "**/cucumber-report-non-failed.json"
           check-status-on-pending: "failure"
           annotation-status-on-pending: "failure"
-          number-of-test-error-to-fail-job: -1
+          number-of-test-error-to-fail-job: 1
       - name: 'check that job-failed outcome is failed'
         if: steps.job-failed.outcome == 'failure'
         run: exit 0
