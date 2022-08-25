@@ -12974,6 +12974,7 @@ async function buildPendingAnnotation(cucumberError, statusOnPending) {
     const annotationStatusOnUndefined = core.getInput('annotation-status-on-undefined');
     const annotationStatusOnPending = core.getInput('annotation-status-on-pending');
     const showNumberOfErrorOnCheckTitle = core.getInput('show-number-of-error-on-check-title');
+    const numberOfTestErrorToFailJob = core.getInput('number-of-test-error-to-fail-job');
 
     const globber = await glob.create(inputPath, {
         followSymbolicLinks: false,
@@ -13020,11 +13021,11 @@ async function buildPendingAnnotation(cucumberError, statusOnPending) {
         }
 
         // TODO make an update request if there are more than 50 annotations
-        errorAnnotations = errorAnnotations.slice(0, 49);
+        const errorAnnotationsToCreate = errorAnnotations.slice(0, 49);
         const pullRequest = github.context.payload.pull_request;
         const head_sha = (pullRequest && pullRequest.head.sha) || github.context.sha;
         const annotations = [
-            ...errorAnnotations
+            ...errorAnnotationsToCreate
         ];
 
         var additionnalTitleInfo = '';
@@ -13063,6 +13064,10 @@ async function buildPendingAnnotation(cucumberError, statusOnPending) {
         core.info('Sending cucumber annotations');
         const octokit = github.getOctokit(accessToken);
         await octokit.checks.create(createCheckRequest);
+
+        if (numberOfTestErrorToFailJob != -1 && errorAnnotations.length >= numberOfTestErrorToFailJob) {
+            core.setFailed(`${errorAnnotations.length} test(s) in error`);
+        }
     }
 })();
 
