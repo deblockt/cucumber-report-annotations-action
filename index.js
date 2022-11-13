@@ -62,6 +62,15 @@ async function buildPendingAnnotation(cucumberError, statusOnPending) {
     return await buildStepAnnotation(cucumberError, statusOnPending, 'Pending');
 }
 
+function setOutput(core, outputName, summaryScenario, summarySteps) {
+    for (const type in summaryScenario) {
+        core.setOutput(`_${outputName}_${type}_scenarios`, summaryScenario[type]);
+    }
+    for (const type in summarySteps) {
+        core.setOutput(`_${outputName}_${type}_steps`, summaryScenario[type]);
+    }
+}
+
 (async() => {
     const inputPath = core.getInput('path');
     const checkName = core.getInput('name');
@@ -84,6 +93,7 @@ async function buildPendingAnnotation(cucumberError, statusOnPending) {
     for await (const cucumberReportFile of globber.globGenerator()) {
         core.info("found cucumber report " + cucumberReportFile);
 
+        const repotOutputName = cucumberReportFile.replace(' ', '_').replace('.json', '');
         const reportResultString = await fs.promises.readFile(cucumberReportFile);
         const reportResult = JSON.parse(reportResultString);
         const globalInformation = reportReader.globalInformation(reportResult);
@@ -100,6 +110,8 @@ async function buildPendingAnnotation(cucumberError, statusOnPending) {
             'pending': globalInformation.pendingStepNumber,
             'passed': globalInformation.succeedStepsNumber
         };
+        setOutput(core, repotOutputName, summaryScenario, summarySteps);
+
         const summary =
                buildSummary(globalInformation.scenarioNumber, 'Scenarios', summaryScenario)
             + '\n'
