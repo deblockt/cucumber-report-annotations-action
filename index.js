@@ -174,7 +174,7 @@ function setOutput(core, outputName, summaryScenario, summarySteps) {
 
         core.info('Sending cucumber annotations');
         const octokit = github.getOctokit(accessToken);
-        await octokit.checks.create(createCheckRequest);
+        await octokit.rest.checks.create(createCheckRequest);
 
         if (numberOfTestErrorToFailJob != -1 && errorAnnotations.length >= numberOfTestErrorToFailJob) {
             core.setFailed(`${errorAnnotations.length} test(s) in error`);
