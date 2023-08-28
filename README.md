@@ -25,3 +25,16 @@ This action should be used to publish action annotations from cucumber json repo
 - **annotation-status-on-undefined** (optional): the annotation status on undefined steps. Can be 'notice', 'warning', 'failure'. if this property is not set, no annotation will be generated for undefined steps
 - **annotation-status-on-pending** (optional): the annotation status on pending steps. Can be 'notice', 'warning', 'failure'. if this property is not set, no annotation will be generated for pending steps
 - **number-of-test-error-to-fail-job** (optional): indicate the number of test in error to fail the build. If the value is -1 this action will never fail the build. By default, this action will not cause the build to fail.
+
+## outputs
+
+the following variable are availables as output:
+- `failed_scenarios`: number of failed scenario
+- `undefined_scenarios`: number of undefined scenario
+- `pending_scenarios`: number of pending scenario
+- `passed_scenarios`: number of passed scenario
+- `failed_steps`: number of failed steps
+- `undefined_steps`: number of undefined steps
+- `pending_steps`: number of pending steps
+- `passed_steps`: number of passed steps
+
