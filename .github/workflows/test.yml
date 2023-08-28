@@ -92,7 +92,7 @@ jobs:
           path: "**/cucumber-report-empty.json"
       - id: check-output
         name: "check output for cucumber-report-empty.json"
-        if: steps.success-with-empty-cucumber-report.output.cucumber-report-empty_failed_scenarios != 1
+        if: steps.success-with-empty-cucumber-report.output.cucumber-report-empty_failed_scenarios != 0
         run: exit 1
       - uses: ./
         id: job-failed
