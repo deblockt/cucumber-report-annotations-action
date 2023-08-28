@@ -28,13 +28,13 @@ This action should be used to publish action annotations from cucumber json repo
 
 ## outputs
 
-the following variable are availables as output:
-- `failed_scenarios`: number of failed scenario
-- `undefined_scenarios`: number of undefined scenario
-- `pending_scenarios`: number of pending scenario
-- `passed_scenarios`: number of passed scenario
-- `failed_steps`: number of failed steps
-- `undefined_steps`: number of undefined steps
-- `pending_steps`: number of pending steps
-- `passed_steps`: number of passed steps
+the following variable are availables as output (where output name if the json file name with ' ' replaced by '_' and wihout '.json'): 
+- `${output}_failed_scenarios`: number of failed scenario
+- `${output}_undefined_scenarios`: number of undefined scenario
+- `${output}_pending_scenarios`: number of pending scenario
+- `${output}_passed_scenarios`: number of passed scenario
+- `${output}_failed_steps`: number of failed steps
+- `${output}_undefined_steps`: number of undefined steps
+- `${output}_pending_steps`: number of pending steps
+- `${output}_passed_steps`: number of passed steps
 
