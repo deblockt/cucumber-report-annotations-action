@@ -145,7 +145,7 @@ function getPendingSteps(scenario) {
     return getStepByStatus(scenario, 'pending');
 }
 function getScenarioStatus(scenario) {
-    const steps = [...scenario.before, ...scenario.after, ...scenario.steps];
+    const steps = [...scenario.before || [], ...scenario.after || [], ...scenario.steps || []];
     for (const step of steps) {
         if (step.result.status === 'failed') {
             return 'failed';
