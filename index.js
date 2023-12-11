@@ -52,7 +52,7 @@ async function buildStepAnnotation(cucumberError, status, errorType) {
 
 async function buildReportDetailAnnotation(fileReport) {
     const message = fileReport.scenarios
-        .map(scenario => `${emojyByStatus(scenario.status)} Scenario: ${scenario.name} (${scenario.status})`)
+        .map(scenario => `${emojyByStatus(scenario.status)} Scenario: ${scenario.name}`)
         .join('\n');
 
     return {
