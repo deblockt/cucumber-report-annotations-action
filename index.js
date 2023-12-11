@@ -199,21 +199,23 @@ function setOutput(core, outputName, summaryScenario, summarySteps) {
         // add all scenario publish
         core.info('Building all scenario summary')
         const allScenarioByFile = reportReader.listAllScenarioByFile(reportResult);
-        const allAnnoattions = allScenarioByFile
-            .map(buildReportDetailAnnotation)
-            .reduce((a, b) => a.concat(b), []);
+        const allAnnoattions = await Promise.all(
+            allScenarioByFile
+                .map(buildReportDetailAnnotation)
+                .reduce((a, b) => a.concat(b), [])
+        );
         core.info('Send core scenario summary')
-        console.log(JSON.stringify(checksReponse))
+        console.log(allAnnoattions)
         console.log(JSON.stringify({
             ...github.context.repo,
-            check_run_id: checksReponse.id,
+            check_run_id: checksReponse.data.id,
             output: {
                 annotations: allAnnoattions
             }
         }))
         await octokit.rest.checks.update({
             ...github.context.repo,
-            check_run_id: checksReponse.id,
+            check_run_id: checksReponse.data.id,
             output: {
                 annotations: allAnnoattions
             }
