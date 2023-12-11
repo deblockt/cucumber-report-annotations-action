@@ -52,7 +52,7 @@ async function buildStepAnnotation(cucumberError, status, errorType) {
 
 async function buildReportDetailAnnotation(fileReport) {
     const message = fileReport.scenarios
-        .map(scenario => `*Scenario*: ${scenario.name} (${scenario.status})`)
+        .map(scenario => `${emojyByStatus(scenario.status)} Scenario: ${scenario.name} (${scenario.status})`)
         .join('\n');
 
     return {
@@ -77,6 +77,19 @@ async function buildUndefinedAnnotation(cucumberError, statusOnSkipped) {
 
 async function buildPendingAnnotation(cucumberError, statusOnPending) {
     return await buildStepAnnotation(cucumberError, statusOnPending, 'Pending');
+}
+
+function emojyByStatus(status) {
+    switch (status) {
+        case 'success':
+            return '✅';
+        case 'failed':
+            return '❌'
+        case 'pending':
+            return '⌛';
+        default:
+            return '-';
+    }
 }
 
 function setOutput(core, outputName, summaryScenario, summarySteps) {
