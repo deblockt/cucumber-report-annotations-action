@@ -62,6 +62,7 @@ function filePendingStepsData(fileReport) {
 function fileAllScenario(fileReport) {
     return {
         file: fileReport.uri,
+        name: fileReport.name,
         scenarios: fileReport.elements
             .map(scenario => ({
                 name: scenario.name,

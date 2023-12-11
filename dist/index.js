@@ -12014,6 +12014,7 @@ function filePendingStepsData(fileReport) {
 function fileAllScenario(fileReport) {
     return {
         file: fileReport.uri,
+        name: fileReport.name,
         scenarios: fileReport.elements
             .map(scenario => ({
                 name: scenario.name,
@@ -12389,7 +12390,7 @@ async function buildStepAnnotation(cucumberError, status, errorType) {
 
 async function buildReportDetailAnnotation(fileReport) {
     const message = fileReport.scenarios
-        .map(scenario => `Scenario: ${scenario.name} (${scenario.status})`)
+        .map(scenario => `*Scenario*: ${scenario.name} (${scenario.status})`)
         .join('\n');
 
     return {
@@ -12399,7 +12400,7 @@ async function buildReportDetailAnnotation(fileReport) {
         start_column: 0,
         end_column: 0,
         annotation_level: 'notice',
-        title: fileReport.file + ' Report',
+        title: `Feature ${fileReport.name} Report`,
         message
     };
 }
