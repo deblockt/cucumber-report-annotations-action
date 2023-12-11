@@ -201,7 +201,7 @@ function setOutput(core, outputName, summaryScenario, summarySteps) {
         const allScenarioByFile = reportReader.listAllScenarioByFile(reportResult);
         const allAnnoattions = allScenarioByFile
             .map(buildReportDetailAnnotation)
-            .reduce((a, b) => a.contact(b), [])
+            .reduce((a, b) => a.concat(b), []);
         core.info('Send core scenario summary')
         await octokit.rest.checks.update({
             ...github.context.repo,
