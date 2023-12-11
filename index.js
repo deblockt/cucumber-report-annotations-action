@@ -203,6 +203,14 @@ function setOutput(core, outputName, summaryScenario, summarySteps) {
             .map(buildReportDetailAnnotation)
             .reduce((a, b) => a.concat(b), []);
         core.info('Send core scenario summary')
+        console.log(JSON.stringify(checksReponse))
+        console.log(JSON.stringify({
+            ...github.context.repo,
+            check_run_id: checksReponse.id,
+            output: {
+                annotations: allAnnoattions
+            }
+        }))
         await octokit.rest.checks.update({
             ...github.context.repo,
             check_run_id: checksReponse.id,
