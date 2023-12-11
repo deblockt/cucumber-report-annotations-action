@@ -198,7 +198,7 @@ function setOutput(core, outputName, summaryScenario, summarySteps) {
         }
         // add all scenario publish
         core.info('Building all scenario summary')
-        const allScenarioByFile = reportReader.listAllScenarioByFile(cucumberReportFile);
+        const allScenarioByFile = reportReader.listAllScenarioByFile(reportResult);
         const allAnnoattions = allScenarioByFile
             .map(buildReportDetailAnnotation)
             .reduce((a, b) => a.contact(b), [])
