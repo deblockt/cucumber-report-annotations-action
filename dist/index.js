@@ -12398,7 +12398,7 @@ async function buildReportDetailAnnotation(fileReport) {
         end_line: 0,
         start_column: 0,
         end_column: 0,
-        annotation_level: 'neutral',
+        annotation_level: 'notice',
         title: fileReport.file + ' Report',
         message
     };
