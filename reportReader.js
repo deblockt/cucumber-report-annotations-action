@@ -12,6 +12,11 @@ const EMPTY_GLOBAL_INFO = {
     pendingStepNumber: 0
 }
 
+module.exports.listAllScenarioByFile = (report) => {
+    return report
+        .map(fileReport => fileAllScenario(fileReport))
+}
+
 module.exports.globalInformation = (report) => {
     return report
         .map(fileReport => globalFileInformation(fileReport))
@@ -52,6 +57,17 @@ function filePendingStepsData(fileReport) {
     return fileReport.elements
         .filter(scenario => hasPending(scenario))
         .map(pendingScenario => buildPendingData(fileReport, pendingScenario));
+}
+
+function fileAllScenario(fileReport) {
+    return {
+        file: fileReport.uri,
+        scenarios: fileReport.elements
+            .map(scenario => ({
+                name: scenario.name,
+                status: getScenarioStatus(scenario)
+            }))
+    }
 }
 
 function sum(info1, info2) {
@@ -127,6 +143,21 @@ function getUndefinedSteps(scenario) {
 }
 function getPendingSteps(scenario) {
     return getStepByStatus(scenario, 'pending');
+}
+function getScenarioStatus(scenario) {
+    const steps = [...scenario.before, ...scenario.after, ...scenario.steps];
+    for (const step of steps) {
+        if (step.result.status === 'failed') {
+            return 'failed';
+        } else if (step.result.status === 'skipped') {
+            return 'skipped';
+        } else if (step.result.status === 'undefined') {
+            return 'undefined';
+        } else if (step.result.status === 'pending') {
+            return 'pending';
+        }
+    }
+    return 'success';
 }
 
 function getStepByStatus(scenario, status) {
