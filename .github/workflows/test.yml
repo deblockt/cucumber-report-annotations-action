@@ -95,7 +95,7 @@ jobs:
         with:
           name: "job with summary"
           access-token: ${{ secrets.GITHUB_TOKEN }}
-          path: "**/cucumber-report-ok.json"
+          path: "**/cucumber-report.json"
           show-global-summary-report: 'true'
       - id: check-output
         name: "check output for cucumber-report-empty.json"
