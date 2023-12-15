@@ -62,7 +62,7 @@ async function buildReportDetailAnnotation(fileReport) {
         start_column: 0,
         end_column: 0,
         annotation_level: 'notice',
-        title: `Feature ${fileReport.name} Report`,
+        title: `Feature: ${fileReport.name} Report`,
         message
     };
 }
