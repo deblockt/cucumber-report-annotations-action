@@ -25,6 +25,7 @@ This action should be used to publish action annotations from cucumber json repo
 - **annotation-status-on-undefined** (optional): the annotation status on undefined steps. Can be 'notice', 'warning', 'failure'. if this property is not set, no annotation will be generated for undefined steps
 - **annotation-status-on-pending** (optional): the annotation status on pending steps. Can be 'notice', 'warning', 'failure'. if this property is not set, no annotation will be generated for pending steps
 - **number-of-test-error-to-fail-job** (optional): indicate the number of test in error to fail the build. If the value is -1 this action will never fail the build. By default, this action will not cause the build to fail.
+- **show-global-summary-report** (optional): if it is set to true, a full summary report will be display for each feature file.
 
 ## outputs
 

@@ -37,6 +37,10 @@ inputs:
     description: "if it is set to true, the number of errors will be indicated on the check title (visible on the pr check)"
     require: true
     default: 'true'
+  show-global-summary-report:
+    description: "if it is set to true, a full summary report will be display for each feature file."
+    require: true
+    default: 'false'
   number-of-test-error-to-fail-job:
     description: "indicate the number of test in error to fail the build. If the value is -1 this action will never fail the build."
     require: true
