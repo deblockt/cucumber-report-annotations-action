@@ -50,6 +50,23 @@ async function buildStepAnnotation(cucumberError, status, errorType) {
     }
 }
 
+async function buildReportDetailAnnotation(fileReport) {
+    const message = fileReport.scenarios
+        .map(scenario => `${emojiByStatus(scenario.status)} Scenario: ${scenario.name}`)
+        .join('\n');
+
+    return {
+        path: (await memoizedFindBestFileMatch(fileReport.file)) || fileReport.file,
+        start_line: 0,
+        end_line: 0,
+        start_column: 0,
+        end_column: 0,
+        annotation_level: 'notice',
+        title: `Feature: ${fileReport.name} Report`,
+        message
+    };
+}
+
 async function buildErrorAnnotations(cucumberError, statusOnError) {
     return await buildStepAnnotation(cucumberError, statusOnError, 'Failed');
 }
@@ -60,6 +77,19 @@ async function buildUndefinedAnnotation(cucumberError, statusOnSkipped) {
 
 async function buildPendingAnnotation(cucumberError, statusOnPending) {
     return await buildStepAnnotation(cucumberError, statusOnPending, 'Pending');
+}
+
+function emojiByStatus(status) {
+    switch (status) {
+        case 'success':
+            return '✅';
+        case 'failed':
+            return '❌'
+        case 'pending':
+            return '⌛';
+        default:
+            return '-';
+    }
 }
 
 function setOutput(core, outputName, summaryScenario, summarySteps) {
@@ -83,7 +113,7 @@ function setOutput(core, outputName, summaryScenario, summarySteps) {
     const annotationStatusOnPending = core.getInput('annotation-status-on-pending');
     const showNumberOfErrorOnCheckTitle = core.getInput('show-number-of-error-on-check-title');
     const numberOfTestErrorToFailJob = core.getInput('number-of-test-error-to-fail-job');
-
+    const showGlobalSummaryReport = core.getInput('show-global-summary-report')
     const globber = await glob.create(inputPath, {
         followSymbolicLinks: false,
     });
@@ -174,10 +204,30 @@ function setOutput(core, outputName, summaryScenario, summarySteps) {
 
         core.info('Sending cucumber annotations');
         const octokit = github.getOctokit(accessToken);
-        await octokit.rest.checks.create(createCheckRequest);
+        const checksReponse = await octokit.rest.checks.create(createCheckRequest);
 
         if (numberOfTestErrorToFailJob != -1 && errorAnnotations.length >= numberOfTestErrorToFailJob) {
             core.setFailed(`${errorAnnotations.length} test(s) in error`);
+        }
+
+        if (showGlobalSummaryReport === 'true') {
+            core.info('Building all scenario summary')
+            const allScenarioByFile = reportReader.listAllScenarioByFile(reportResult);
+            const allAnnoattions = await Promise.all(
+                allScenarioByFile
+                    .map(buildReportDetailAnnotation)
+                    .reduce((a, b) => a.concat(b), [])
+            );
+            core.info('Send core scenario summary')
+            await octokit.rest.checks.update({
+                ...github.context.repo,
+                check_run_id: checksReponse.data.id,
+                output: {
+                    title: checkName + additionnalTitleInfo,
+                    summary,
+                    annotations: allAnnoattions
+                }
+            });
         }
     }
 })();
