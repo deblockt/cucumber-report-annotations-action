@@ -81,7 +81,7 @@ module.exports.reader = (reportString) => {
                 core.info(`add test case for pickle ${element.testCase.pickleId}`)
 
                 pickles[element.testCase.pickleId].testCase = testCase
-                testCases[testCase.id] = testCases
+                testCases[testCase.id] = testCase
             } else if ("testStepFinished" in element) {
                 globalInfo.stepsNumber++;
                 const step = testSteps[element.testStepFinished.testStepId]
