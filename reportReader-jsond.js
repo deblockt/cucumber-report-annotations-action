@@ -163,6 +163,7 @@ module.exports.reader = (reportString) => {
 }
 
 function getTestCaseStatus(testCase) {
+    core.info(`testCase ${JSON.stringify(testCase)}`)
     const steps = testCase.steps;
     for (const step of steps) {
         if (step.result.status === 'FAILED') {
