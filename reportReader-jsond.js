@@ -13,7 +13,6 @@ const EMPTY_GLOBAL_INFO = {
 }
 
 module.exports.reader = (reportString) => {
-    const report = reportString.toString().split('\n').map(JSON.parse)
     const features = {}
     const scenario = {}
     const pickles = {}
@@ -21,79 +20,83 @@ module.exports.reader = (reportString) => {
     const testCases = {}
     const testSteps = {}
     const globalInfo = { ...EMPTY_GLOBAL_INFO }
-    report.forEach(element => {
-        if ("gherkinDocument" in element) {
-            const feature = element.gherkinDocument.feature
-            const scenarios = []
-            feature.children
-                    .filter(it => "scenario" in it)
-                    .forEach(it => {
-                        const sc = {
-                            name: it.name,
-                            it: it.id,
-                            location: it.location,
-                            uri: element.gherkinDocument.uri,
-                            pickles: {}
-                        }
-                        scenario[it.id] = sc
-                        scenarios.push(sc)
-                    })
+    reportString
+        .toString().split('\n')
+        .filter(it => it !== '')
+        .forEach(line => {
+            const element = JSON.parse(line)    
+            if ("gherkinDocument" in element) {
+                const feature = element.gherkinDocument.feature
+                const scenarios = []
+                feature.children
+                        .filter(it => "scenario" in it)
+                        .forEach(it => {
+                            const sc = {
+                                name: it.name,
+                                it: it.id,
+                                location: it.location,
+                                uri: element.gherkinDocument.uri,
+                                pickles: {}
+                            }
+                            scenario[it.id] = sc
+                            scenarios.push(sc)
+                        })
 
-            features.push({
-                name: feature.name,
-                location: feature.location,
-                uri: element.gherkinDocument.uri,
-                scenarios: scenarios
-            })
-        } else if ("pickle" in element) {
-            if (element.pickle.astNodeIds[0] in scenario) {
-                const pk = {
-                    name: element.pickle.name,
-                    scenario: scenario[element.pickle.astNodeIds[0]]
+                features.push({
+                    name: feature.name,
+                    location: feature.location,
+                    uri: element.gherkinDocument.uri,
+                    scenarios: scenarios
+                })
+            } else if ("pickle" in element) {
+                if (element.pickle.astNodeIds[0] in scenario) {
+                    const pk = {
+                        name: element.pickle.name,
+                        scenario: scenario[element.pickle.astNodeIds[0]]
+                    }
+                    pk.steps = element.pickle.steps.map(it => ({
+                        id: it.id,
+                        name: it.text,
+                        pickle: pk
+                    }))
+                    pk.steps.forEach(it => picklesSteps[it.id] = it)
+                    scenario[element.pickle.astNodeIds[0]].pickles[element.pickle.id] = pk
+                    pickles[element.pickle.id] = pk
                 }
-                pk.steps = element.pickle.steps.map(it => ({
+            } else if ("testCase" in element) {
+                globalInfo.scenarioNumber++;
+                const caseTestSteps = element.testCase.testSteps.map(it => ({
                     id: it.id,
-                    name: it.text,
-                    pickle: pk
+                    pickleStep: picklesSteps[it.pickleStepId]
                 }))
-                pk.steps.forEach(it => picklesSteps[it.id] = it)
-                scenario[element.pickle.astNodeIds[0]].pickles[element.pickle.id] = pk
-                pickles[element.pickle.id] = pk
+                caseTestSteps.forEach(it => testSteps[it.id] = it)
+                const testCase = {
+                    id: element.testCase.id,
+                    pickleId: element.testCase.pickleId,
+                    steps: caseTestSteps
+                }
+                pickles[element.testCase.pickleId].testCase = testCase
+                testCases[testCase.id] = testCases
+            } else if ("testStepFinished" in element) {
+                globalInfo.stepsNumber++;
+                const step = testSteps[element.testStepFinished.testStepId]
+                step.result = element.testStepFinished.testStepResult
+                if (step.result.status === 'FAILED') {
+                    globalInfo.failedScenarioNumber++;
+                    globalInfo.failedStepsNumber++;
+                } else if (step.result.status === 'PENDING') {
+                    globalInfo.pendingScenarioNumber++;
+                    globalInfo.pendingStepNumber++;
+                } else if (step.result.status === 'UNDEFINED') {
+                    globalInfo.undefinedScenarioNumber++;
+                    globalInfo.undefinedStepsNumber++;
+                } else if (step.result.status === 'SKIPPED') {
+                    globalInfo.skippedStepsNumber++; // TODO à mon avis ça marche pas
+                } else if (step.result.status === 'PASSED') {
+                    globalInfo.succeedStepsNumber++;
+                }
             }
-        } else if ("testCase" in element) {
-            globalInfo.scenarioNumber++;
-            const caseTestSteps = element.testCase.testSteps.map(it => ({
-                id: it.id,
-                pickleStep: picklesSteps[it.pickleStepId]
-            }))
-            caseTestSteps.forEach(it => testSteps[it.id] = it)
-            const testCase = {
-                id: element.testCase.id,
-                pickleId: element.testCase.pickleId,
-                steps: caseTestSteps
-            }
-            pickles[element.testCase.pickleId].testCase = testCase
-            testCases[testCase.id] = testCases
-        } else if ("testStepFinished" in element) {
-            globalInfo.stepsNumber++;
-            const step = testSteps[element.testStepFinished.testStepId]
-            step.result = element.testStepFinished.testStepResult
-            if (step.result.status === 'FAILED') {
-                globalInfo.failedScenarioNumber++;
-                globalInfo.failedStepsNumber++;
-            } else if (step.result.status === 'PENDING') {
-                globalInfo.pendingScenarioNumber++;
-                globalInfo.pendingStepNumber++;
-            } else if (step.result.status === 'UNDEFINED') {
-                globalInfo.undefinedScenarioNumber++;
-                globalInfo.undefinedStepsNumber++;
-            } else if (step.result.status === 'SKIPPED') {
-                globalInfo.skippedStepsNumber++; // TODO à mon avis ça marche pas
-            } else if (step.result.status === 'PASSED') {
-                globalInfo.succeedStepsNumber++;
-            }
-        }
-    });
+        });
 
     // TODO compute it reading file
     globalInformation.succeedScenarioNumber = Object.values(testCases)
