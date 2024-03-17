@@ -12161,7 +12161,9 @@ function buildStepData(fileReport, scenario, getStepsFunction) {
 /***/ }),
 
 /***/ 1875:
-/***/ ((module) => {
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+const core = __nccwpck_require__(2186);
 
 const EMPTY_GLOBAL_INFO = {
     scenarioNumber: 0,
@@ -12226,7 +12228,7 @@ module.exports.reader = (reportString) => {
                 pk.steps.forEach(it => picklesSteps[it.id] = it)
                 scenario[element.pickle.astNodeIds[0]].pickles[element.pickle.id] = pk
                 pickles[element.pickle.id] = pk
-                console.log(`add pickle ${element.pickle.id}`, pk)
+                core.info(`add pickle ${element.pickle.id}`)
             } else if ("testCase" in element) {
                 globalInfo.scenarioNumber++;
                 const caseTestSteps = element.testCase.testSteps.map(it => ({
@@ -12239,7 +12241,7 @@ module.exports.reader = (reportString) => {
                     pickleId: element.testCase.pickleId,
                     steps: caseTestSteps
                 }
-                console.log(`add test case for pickle ${element.testCase.pickleId}`)
+                core.info(`add test case for pickle ${element.testCase.pickleId}`)
 
                 pickles[element.testCase.pickleId].testCase = testCase
                 testCases[testCase.id] = testCases
