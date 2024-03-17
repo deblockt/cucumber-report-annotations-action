@@ -1,0 +1,34 @@
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+jobs:
+  direct-from-repository-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Confirm execution without install/build
+        uses: ./
+        with:
+          name: "Successful cucumber report direct from repository"
+          access-token: ${{ secrets.GITHUB_TOKEN }}
+          path: "**/cucumber-report.json" # This committed report should be a success
+
+  ubuntu-action-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - run: npm ci
+      - run: npm run cucumber-message || true
+      - uses: ./
+        name: "full report"
+        with:
+          name: "full report"
+          access-token: ${{ secrets.GITHUB_TOKEN }}
+          path: "**/cucumber-report.jsond"
+      

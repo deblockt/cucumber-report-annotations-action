@@ -19,3 +19,10 @@ Feature: Test file
     @NonFailedTest
     Scenario: Scenario with pending step
         When this step is pending
+
+    Scenario Outline: Scenario with Outline
+        Given this step will success using example <variable>
+    Examples: 
+        | variable |
+        | tets     |
+        | test2    |
