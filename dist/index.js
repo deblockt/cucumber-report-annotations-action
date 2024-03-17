@@ -11947,7 +11947,7 @@ function wrappy (fn, cb) {
 
 /***/ }),
 
-/***/ 4010:
+/***/ 8797:
 /***/ ((module) => {
 
 const EMPTY_GLOBAL_INFO = {
@@ -11964,33 +11964,34 @@ const EMPTY_GLOBAL_INFO = {
     pendingStepNumber: 0
 }
 
-module.exports.listAllScenarioByFile = (report) => {
-    return report
-        .map(fileReport => fileAllScenario(fileReport))
-}
-
-module.exports.globalInformation = (report) => {
-    return report
-        .map(fileReport => globalFileInformation(fileReport))
-        .reduce((a, b) => sum(a, b), EMPTY_GLOBAL_INFO);
-}
-
-module.exports.failedSteps = (report) => {
-    return report
-        .map(fileReport => fileFailureStepData(fileReport))
-        .reduce((a, b) => a.concat(b), []);
-}
-
-module.exports.undefinedSteps = (report) => {
-    return report
-        .map(fileReport => fileUndefinedStepsData(fileReport))
-        .reduce((a, b) => a.concat(b), []);
-}
-
-module.exports.pendingSteps = (report) => {
-    return report
-        .map(fileReport => filePendingStepsData(fileReport))
-        .reduce((a, b) => a.concat(b), []);
+module.exports.reader = (reportString) => {
+    const report = JSON.parse(reportString)
+    return {
+        get listAllScenarioByFile() {
+            return report
+                .map(fileReport => fileAllScenario(fileReport))
+        },
+        get globalInformation() {
+            return report
+                .map(fileReport => globalFileInformation(fileReport))
+                .reduce((a, b) => sum(a, b), EMPTY_GLOBAL_INFO);
+        },
+        get failedSteps() {
+            return report
+                .map(fileReport => fileFailureStepData(fileReport))
+                .reduce((a, b) => a.concat(b), []);
+        },
+        get undefinedSteps() {
+            return report
+                .map(fileReport => fileUndefinedStepsData(fileReport))
+                .reduce((a, b) => a.concat(b), []);
+        },
+        get pendingSteps() {
+            return report
+                .map(fileReport => filePendingStepsData(fileReport))
+                .reduce((a, b) => a.concat(b), []);
+        }
+    }
 }
 
 function fileFailureStepData(fileReport) {
@@ -12156,6 +12157,184 @@ function buildStepData(fileReport, scenario, getStepsFunction) {
         error: skippedStep.result.error_message
     }
 }
+
+/***/ }),
+
+/***/ 1875:
+/***/ ((module) => {
+
+const EMPTY_GLOBAL_INFO = {
+    scenarioNumber: 0,
+    failedScenarioNumber: 0,
+    pendingScenarioNumber: 0,
+    undefinedScenarioNumber: 0,
+    stepsNumber: 0,
+    succeedScenarioNumber: 0,
+    failedStepsNumber: 0,
+    skippedStepsNumber: 0,
+    undefinedStepsNumber: 0,
+    succeedStepsNumber: 0,
+    pendingStepNumber: 0
+}
+
+module.exports.reader = (reportString) => {
+    const report = reportString.split('\n').map(JSON.parse)
+    const features = {}
+    const scenario = {}
+    const pickles = {}
+    const picklesSteps = {}
+    const testCases = {}
+    const testSteps = {}
+    const globalInfo = { ...EMPTY_GLOBAL_INFO }
+    report.forEach(element => {
+        if ("gherkinDocument" in element) {
+            const feature = element.gherkinDocument.feature
+            const scenarios = []
+            feature.children
+                    .filter(it => "scenario" in it)
+                    .forEach(it => {
+                        const sc = {
+                            name: it.name,
+                            it: it.id,
+                            location: it.location,
+                            uri: element.gherkinDocument.uri,
+                            pickles: {}
+                        }
+                        scenario[it.id] = sc
+                        scenarios.push(sc)
+                    })
+
+            features.push({
+                name: feature.name,
+                location: feature.location,
+                uri: element.gherkinDocument.uri,
+                scenarios: scenarios
+            })
+        } else if ("pickle" in element) {
+            if (element.pickle.astNodeIds[0] in scenario) {
+                const pk = {
+                    name: element.pickle.name,
+                    scenario: scenario[element.pickle.astNodeIds[0]]
+                }
+                pk.steps = element.pickle.steps.map(it => ({
+                    id: it.id,
+                    name: it.text,
+                    pickle: pk
+                }))
+                pk.steps.forEach(it => picklesSteps[it.id] = it)
+                scenario[element.pickle.astNodeIds[0]].pickles[element.pickle.id] = pk
+                pickles[element.pickle.id] = pk
+            }
+        } else if ("testCase" in element) {
+            globalInfo.scenarioNumber++;
+            const caseTestSteps = element.testCase.testSteps.map(it => ({
+                id: it.id,
+                pickleStep: picklesSteps[it.pickleStepId]
+            }))
+            caseTestSteps.forEach(it => testSteps[it.id] = it)
+            const testCase = {
+                id: element.testCase.id,
+                pickleId: element.testCase.pickleId,
+                steps: caseTestSteps
+            }
+            pickles[element.testCase.pickleId].testCase = testCase
+            testCases[testCase.id] = testCases
+        } else if ("testStepFinished" in element) {
+            globalInfo.stepsNumber++;
+            const step = testSteps[element.testStepFinished.testStepId]
+            step.result = element.testStepFinished.testStepResult
+            if (step.result.status === 'FAILED') {
+                globalInfo.failedScenarioNumber++;
+                globalInfo.failedStepsNumber++;
+            } else if (step.result.status === 'PENDING') {
+                globalInfo.pendingScenarioNumber++;
+                globalInfo.pendingStepNumber++;
+            } else if (step.result.status === 'UNDEFINED') {
+                globalInfo.undefinedScenarioNumber++;
+                globalInfo.undefinedStepsNumber++;
+            } else if (step.result.status === 'SKIPPED') {
+                globalInfo.skippedStepsNumber++; // TODO à mon avis ça marche pas
+            } else if (step.result.status === 'PASSED') {
+                globalInfo.succeedStepsNumber++;
+            }
+        }
+    });
+
+    // TODO compute it reading file
+    globalInformation.succeedScenarioNumber = Object.values(testCases)
+        .filter(it => getTestCaseStatus(it) === 'success')
+        .reduce((a, b) => a + b, 0)
+
+    return {
+        get listAllScenarioByFile() {
+            return features
+                .map(feature => ({
+                    file: feature.uri,
+                    name: feature.name,
+                    scenarios: feature.scenarios
+                        .flatMap(scenario =>
+                            scenario.pickles.map(pickle => ({
+                                name: scenario.name,
+                                status: getTestCaseStatus(pickle.testCase)
+                            }))
+                        )
+                }))
+        },
+        get globalInformation() {
+            return globalInfo
+        },
+        get failedSteps() {
+            return Object.values(testSteps)
+                .filter(it => it.result.status === 'FAILED')
+                .map(it => ({
+                    file: it.pickleStep.pickle.scenario.uri,
+                    line: it.pickleStep.pickle.scenario.location.line,
+                    title: it.pickleStep.pickle.name,
+                    step: it.pickleStep.name,
+                    error: it.result.message
+                }))
+        },
+        get undefinedSteps() {
+            return Object.values(testSteps)
+                .filter(it => it.result.status === 'UNDEFINED')
+                .map(it => ({
+                    file: it.pickleStep.pickle.scenario.uri,
+                    line: it.pickleStep.pickle.scenario.location.line,
+                    title: it.pickleStep.pickle.name,
+                    step: it.pickleStep.name,
+                    error: it.result.message
+                }))
+        },
+        get pendingSteps() {
+            return Object.values(testSteps)
+                .filter(it => it.result.status === 'PENDING')
+                .map(it => ({
+                    file: it.pickleStep.pickle.scenario.uri,
+                    line: it.pickleStep.pickle.scenario.location.line,
+                    title: it.pickleStep.pickle.name,
+                    step: it.pickleStep.name,
+                    error: it.result.message
+                }))
+        }
+    }
+}
+
+function getTestCaseStatus(testCase) {
+    const steps = testCase.steps;
+    for (const step of steps) {
+        if (step.result.status === 'FAILED') {
+            return 'failed';
+        } else if (step.result.status === 'SKIPPED') {
+            return 'skipped';
+        } else if (step.result.status === 'UNDEFINED') {
+            return 'undefined';
+        } else if (step.result.status === 'PENDING') {
+            return 'pending';
+        }
+    }
+    return 'success';
+}
+
 
 /***/ }),
 
@@ -12340,7 +12519,8 @@ const core = __nccwpck_require__(2186);
 const github = __nccwpck_require__(5438);
 const glob = __nccwpck_require__(8090);
 const fs = __nccwpck_require__(7147);
-const reportReader = __nccwpck_require__(4010);
+const reportReaderJson = __nccwpck_require__(8797);
+const reportReaderJsond = __nccwpck_require__(1875);
 
 function memoize(fn) {
     const cache = {};
@@ -12461,10 +12641,10 @@ function setOutput(core, outputName, summaryScenario, summarySteps) {
     for await (const cucumberReportFile of globber.globGenerator()) {
         core.info("found cucumber report " + cucumberReportFile);
 
-        const repotOutputName = cucumberReportFile.replace(' ', '_').replace('.json', '');
+        const reportOutputName = cucumberReportFile.replace(' ', '_').replace('.json', '');
         const reportResultString = await fs.promises.readFile(cucumberReportFile);
-        const reportResult = JSON.parse(reportResultString);
-        const globalInformation = reportReader.globalInformation(reportResult);
+        const reportResult = (cucumberReportFile.endsWith('.json') ? reportReaderJson : reportReaderJsond).reader(reportResultString);
+        const globalInformation = reportResult.globalInformation;
         const summaryScenario = {
             'failed': globalInformation.failedScenarioNumber,
             'undefined': globalInformation.undefinedScenarioNumber,
@@ -12478,23 +12658,23 @@ function setOutput(core, outputName, summaryScenario, summarySteps) {
             'pending': globalInformation.pendingStepNumber,
             'passed': globalInformation.succeedStepsNumber
         };
-        setOutput(core, repotOutputName, summaryScenario, summarySteps);
+        setOutput(core, reportOutputName, summaryScenario, summarySteps);
 
         const summary =
                buildSummary(globalInformation.scenarioNumber, 'Scenarios', summaryScenario)
             + '\n'
             + buildSummary(globalInformation.stepsNumber, 'Steps', summarySteps);
 
-        const errors = reportReader.failedSteps(reportResult);
+        const errors = reportResult.failedSteps;
         var errorAnnotations = await Promise.all(errors.map(e => buildErrorAnnotations(e, annotationStatusOnError)));
 
         if (annotationStatusOnUndefined) {
-            const undefined = reportReader.undefinedSteps(reportResult);
+            const undefined = reportResult.undefinedSteps;
             var undefinedAnnotations = await Promise.all(undefined.map(e => buildUndefinedAnnotation(e, annotationStatusOnUndefined)));
             errorAnnotations.push(...undefinedAnnotations);
         }
         if (annotationStatusOnPending) {
-            const pending = reportReader.pendingSteps(reportResult);
+            const pending = reportResult.pendingSteps;
             var pendingAnnotations = await Promise.all(pending.map(e => buildPendingAnnotation(e, annotationStatusOnPending)));
             errorAnnotations.push(...pendingAnnotations);
         }
@@ -12550,7 +12730,7 @@ function setOutput(core, outputName, summaryScenario, summarySteps) {
 
         if (showGlobalSummaryReport === 'true') {
             core.info('Building all scenario summary')
-            const allScenarioByFile = reportReader.listAllScenarioByFile(reportResult);
+            const allScenarioByFile = reportResult.listAllScenarioByFile;
             const allAnnoattions = await Promise.all(
                 allScenarioByFile
                     .map(buildReportDetailAnnotation)
