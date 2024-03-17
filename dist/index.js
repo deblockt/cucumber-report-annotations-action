@@ -12200,7 +12200,7 @@ module.exports.reader = (reportString) => {
                         .forEach(it => {
                             const sc = {
                                 name: it.name,
-                                it: it.id,
+                                id: it.id,
                                 location: it.location,
                                 uri: element.gherkinDocument.uri,
                                 pickles: {}
