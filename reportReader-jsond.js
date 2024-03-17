@@ -104,7 +104,7 @@ module.exports.reader = (reportString) => {
         });
 
     // TODO compute it reading file
-    globalInformation.succeedScenarioNumber = Object.values(testCases)
+    globalInfo.succeedScenarioNumber = Object.values(testCases)
         .filter(it => getTestCaseStatus(it) === 'success')
         .reduce((a, b) => a + b, 0)
 
