@@ -13,7 +13,7 @@ const EMPTY_GLOBAL_INFO = {
 }
 
 module.exports.reader = (reportString) => {
-    const report = reportString.split('\n').map(JSON.parse)
+    const report = reportString.toString().split('\n').map(JSON.parse)
     const features = {}
     const scenario = {}
     const pickles = {}

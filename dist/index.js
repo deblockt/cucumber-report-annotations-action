@@ -11965,7 +11965,7 @@ const EMPTY_GLOBAL_INFO = {
 }
 
 module.exports.reader = (reportString) => {
-    const report = JSON.parse(reportString)
+    const report = reportString.toJSON()
     return {
         get listAllScenarioByFile() {
             return report
@@ -12178,7 +12178,7 @@ const EMPTY_GLOBAL_INFO = {
 }
 
 module.exports.reader = (reportString) => {
-    const report = reportString.split('\n').map(JSON.parse)
+    const report = reportString.toString().split('\n').map(JSON.parse)
     const features = {}
     const scenario = {}
     const pickles = {}
@@ -12643,7 +12643,6 @@ function setOutput(core, outputName, summaryScenario, summarySteps) {
 
         const reportOutputName = cucumberReportFile.replace(' ', '_').replace('.json', '');
         const reportResultString = await fs.promises.readFile(cucumberReportFile);
-        console.log('reportResultString', reportResultString)
         const reportResult = (cucumberReportFile.endsWith('.json') ? reportReaderJson : reportReaderJsond).reader(reportResultString);
         const globalInformation = reportResult.globalInformation;
         const summaryScenario = {

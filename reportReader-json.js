@@ -13,7 +13,7 @@ const EMPTY_GLOBAL_INFO = {
 }
 
 module.exports.reader = (reportString) => {
-    const report = JSON.parse(reportString)
+    const report = reportString.toJSON()
     return {
         get listAllScenarioByFile() {
             return report
