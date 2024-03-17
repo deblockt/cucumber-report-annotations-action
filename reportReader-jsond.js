@@ -13,7 +13,7 @@ const EMPTY_GLOBAL_INFO = {
 }
 
 module.exports.reader = (reportString) => {
-    const features = {}
+    const features = []
     const scenario = {}
     const pickles = {}
     const picklesSteps = {}
