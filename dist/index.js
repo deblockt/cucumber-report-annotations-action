@@ -12643,6 +12643,7 @@ function setOutput(core, outputName, summaryScenario, summarySteps) {
 
         const reportOutputName = cucumberReportFile.replace(' ', '_').replace('.json', '');
         const reportResultString = await fs.promises.readFile(cucumberReportFile);
+        console.log('reportResultString', reportResultString)
         const reportResult = (cucumberReportFile.endsWith('.json') ? reportReaderJson : reportReaderJsond).reader(reportResultString);
         const globalInformation = reportResult.globalInformation;
         const summaryScenario = {
