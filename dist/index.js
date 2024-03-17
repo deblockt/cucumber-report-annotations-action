@@ -12205,10 +12205,11 @@ module.exports.reader = (reportString) => {
                                 uri: element.gherkinDocument.uri,
                                 pickles: {}
                             }
+                            core.info(`add scenario ${it.id}`)
                             scenario[it.id] = sc
                             scenarios.push(sc)
                         })
-
+                core.info(`add feature ${feature.name}, with ${scenarios.length} scenario`)
                 features.push({
                     name: feature.name,
                     location: feature.location,
@@ -12226,6 +12227,7 @@ module.exports.reader = (reportString) => {
                     pickle: pk
                 }))
                 pk.steps.forEach(it => picklesSteps[it.id] = it)
+                core.info(`search for scenario ${element.pickle.astNodeIds[0]}`)
                 scenario[element.pickle.astNodeIds[0]].pickles[element.pickle.id] = pk
                 pickles[element.pickle.id] = pk
                 core.info(`add pickle ${element.pickle.id}`)
