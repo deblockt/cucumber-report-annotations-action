@@ -12214,20 +12214,19 @@ module.exports.reader = (reportString) => {
                     scenarios: scenarios
                 })
             } else if ("pickle" in element) {
-                if (element.pickle.astNodeIds[0] in scenario) {
-                    const pk = {
-                        name: element.pickle.name,
-                        scenario: scenario[element.pickle.astNodeIds[0]]
-                    }
-                    pk.steps = element.pickle.steps.map(it => ({
-                        id: it.id,
-                        name: it.text,
-                        pickle: pk
-                    }))
-                    pk.steps.forEach(it => picklesSteps[it.id] = it)
-                    scenario[element.pickle.astNodeIds[0]].pickles[element.pickle.id] = pk
-                    pickles[element.pickle.id] = pk
+                const pk = {
+                    name: element.pickle.name,
+                    scenario: scenario[element.pickle.astNodeIds[0]]
                 }
+                pk.steps = element.pickle.steps.map(it => ({
+                    id: it.id,
+                    name: it.text,
+                    pickle: pk
+                }))
+                pk.steps.forEach(it => picklesSteps[it.id] = it)
+                scenario[element.pickle.astNodeIds[0]].pickles[element.pickle.id] = pk
+                pickles[element.pickle.id] = pk
+                console.log(`add pickle ${element.pickle.id}`, pk)
             } else if ("testCase" in element) {
                 globalInfo.scenarioNumber++;
                 const caseTestSteps = element.testCase.testSteps.map(it => ({
@@ -12240,6 +12239,8 @@ module.exports.reader = (reportString) => {
                     pickleId: element.testCase.pickleId,
                     steps: caseTestSteps
                 }
+                console.log(`add test case for pickle ${element.testCase.pickleId}`)
+
                 pickles[element.testCase.pickleId].testCase = testCase
                 testCases[testCase.id] = testCases
             } else if ("testStepFinished" in element) {
