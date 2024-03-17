@@ -12199,14 +12199,14 @@ module.exports.reader = (reportString) => {
                         .filter(it => "scenario" in it)
                         .forEach(it => {
                             const sc = {
-                                name: it.name,
-                                id: it.id,
-                                location: it.location,
+                                name: it.scenario.name,
+                                id: it.scenario.id,
+                                location: it.scenario.location,
                                 uri: element.gherkinDocument.uri,
                                 pickles: {}
                             }
-                            core.info(`add scenario ${it.id}`)
-                            scenario[it.id] = sc
+                            core.info(`add scenario ${sc.id}`)
+                            scenario[sc.id] = sc
                             scenarios.push(sc)
                         })
                 core.info(`add feature ${feature.name}, with ${scenarios.length} scenario`)
