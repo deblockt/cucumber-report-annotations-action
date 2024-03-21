@@ -1,10 +1,10 @@
-# cucumber-report-annotations-action
+# Cucumber Report Annotations Action
 
-This action should be used to publish action annotations from cucumber json report.
+This GitHub Action is designed to publish action annotations from Cucumber reports.
 
-## Exemple
+## Example
 
-``` yml
+```yaml
 - uses: deblockt/cucumber-report-annotations-action@v1.7
   with:
     access-token: ${{ secrets.GITHUB_TOKEN }}
@@ -13,29 +13,36 @@ This action should be used to publish action annotations from cucumber json repo
 
 ![demo](doc/demo.png)
 
-## parameters
+## Supported Formats
 
-- **access-token**: mandatory parameter. It's the github token to allow action to add check
-- **name** (optional, default: Cucumber report): the check name.
-- **path** (optional, default: **/cucumber-report.json): the glob path to get cucumber report on json format
-- **check-status-on-error** (optional, default: failure): the check status to use on cucumber error. Can be 'neutral' or 'failure'
-- **check-status-on-undefined** (optional, default: success): the check status to use on cucumber undefined steps. Can be 'success', 'neutral' or 'failure'
-- **check-status-on-pending** (optional, default: success): the check status to use on cucumber pending steps. Can be 'success', 'neutral' or 'failure'
-- **annotation-status-on-error** (optional, default: failure): the annotation status on error. Can be 'notice', 'warning', 'failure'
-- **annotation-status-on-undefined** (optional): the annotation status on undefined steps. Can be 'notice', 'warning', 'failure'. if this property is not set, no annotation will be generated for undefined steps
-- **annotation-status-on-pending** (optional): the annotation status on pending steps. Can be 'notice', 'warning', 'failure'. if this property is not set, no annotation will be generated for pending steps
-- **number-of-test-error-to-fail-job** (optional): indicate the number of test in error to fail the build. If the value is -1 this action will never fail the build. By default, this action will not cause the build to fail.
-- **show-global-summary-report** (optional): if it is set to true, a full summary report will be display for each feature file.
+This GitHub Action supports two formats:
 
-## outputs
+- JSON: The deprecated Cucumber report format. Prefer using the message format. If you use this format, the file extension should be `.json`.
+- Message: The new Cucumber report format using NDJSON (newline-delimited JSON) format. If you use this format, the file extension should be `.ndjson`.
 
-the following variable are availables as output (where output name if the json file name with ' ' replaced by '_' and wihout '.json'): 
-- `${output}_failed_scenarios`: number of failed scenario
-- `${output}_undefined_scenarios`: number of undefined scenario
-- `${output}_pending_scenarios`: number of pending scenario
-- `${output}_passed_scenarios`: number of passed scenario
-- `${output}_failed_steps`: number of failed steps
-- `${output}_undefined_steps`: number of undefined steps
-- `${output}_pending_steps`: number of pending steps
-- `${output}_passed_steps`: number of passed steps
+## Parameters
 
+- **access-token**: Mandatory parameter. It's the GitHub token to allow the action to add checks.
+- **name** (optional, default: Cucumber report): The check name.
+- **path** (optional, default: **/cucumber-report.json): The glob path to get the Cucumber report in JSON format.
+- **check-status-on-error** (optional, default: failure): The check status to use on Cucumber error. Can be 'neutral' or 'failure'.
+- **check-status-on-undefined** (optional, default: success): The check status to use on undefined steps. Can be 'success', 'neutral', or 'failure'.
+- **check-status-on-pending** (optional, default: success): The check status to use on pending steps. Can be 'success', 'neutral', or 'failure'.
+- **annotation-status-on-error** (optional, default: failure): The annotation status on error. Can be 'notice', 'warning', or 'failure'.
+- **annotation-status-on-undefined** (optional): The annotation status on undefined steps. Can be 'notice', 'warning', or 'failure'. If this property is not set, no annotation will be generated for undefined steps.
+- **annotation-status-on-pending** (optional): The annotation status on pending steps. Can be 'notice', 'warning', or 'failure'. If this property is not set, no annotation will be generated for pending steps.
+- **number-of-test-error-to-fail-job** (optional): Indicates the number of tests in error to fail the build. If the value is -1, this action will never fail the build. By default, this action will not cause the build to fail.
+- **show-global-summary-report** (optional): If set to true, a full summary report will be displayed for each feature file.
+
+## Outputs
+
+The following variables are available as output (where the output name is the JSON file name with spaces replaced by underscores and without the '.json' extension):
+
+- `${output}_failed_scenarios`: Number of failed scenarios.
+- `${output}_undefined_scenarios`: Number of undefined scenarios.
+- `${output}_pending_scenarios`: Number of pending scenarios.
+- `${output}_passed_scenarios`: Number of passed scenarios.
+- `${output}_failed_steps`: Number of failed steps.
+- `${output}_undefined_steps`: Number of undefined steps.
+- `${output}_pending_steps`: Number of pending steps.
+- `${output}_passed_steps`: Number of passed steps.
