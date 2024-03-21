@@ -71,7 +71,7 @@ module.exports.reader = (reportString) => {
                         id: it.id,
                         name: it.text,
                         pickle: pk,
-                        location: steps[it.astNodeIds[0]].location.line
+                        location: steps[it.astNodeIds[0]].location
                     })
                 })
                 pk.steps.forEach(it => picklesSteps[it.id] = it)
@@ -149,13 +149,6 @@ function getStepsByStatus(testSteps, status) {
     return Object.values(testSteps)
                 .filter(it => it.result.status === status)
                 .map(it => {
-                    console.log(`step for status ${status}: ${JSON.stringify({
-                        file: it.pickleStep.pickle.scenario.uri,
-                        line: it.pickleStep.location.line,
-                        title: it.pickleStep.pickle.name,
-                        step: it.pickleStep.name,
-                        error: it.result.message
-                    })}`)
                     return ({
                         file: it.pickleStep.pickle.scenario.uri,
                         line: it.pickleStep.location.line,
