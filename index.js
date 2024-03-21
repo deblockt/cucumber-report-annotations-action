@@ -197,7 +197,7 @@ function setOutput(core, outputName, summaryScenario, summarySteps) {
             },
           };
 
-        core.info('Creating summary: ' + summary);
+        core.info('Creating summary:\n' + summary);
         await core.summary
           .addHeading(checkName + additionnalTitleInfo, 4)
           .addRaw("\n" + summary)

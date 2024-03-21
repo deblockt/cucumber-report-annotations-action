@@ -12268,10 +12268,9 @@ module.exports.reader = (reportString) => {
             }
         });
 
-    // TODO compute it reading file
     globalInfo.succeedScenarioNumber = Object.values(testCases)
         .filter(it => getTestCaseStatus(it) === 'success')
-        .reduce((a, b) => a + b, 0)
+        .length()
 
     return {
         get listAllScenarioByFile() {
@@ -12328,7 +12327,6 @@ module.exports.reader = (reportString) => {
 }
 
 function getTestCaseStatus(testCase) {
-    core.info(`testCase ${Object.keys(testCase)} ${testCase.steps}`)
     const steps = testCase.steps;
     for (const step of steps) {
         if (step.result.status === 'FAILED') {
@@ -12723,7 +12721,7 @@ function setOutput(core, outputName, summaryScenario, summarySteps) {
             },
           };
 
-        core.info('Creating summary: ' + summary);
+        core.info('Creating summary:\n' + summary);
         await core.summary
           .addHeading(checkName + additionnalTitleInfo, 4)
           .addRaw("\n" + summary)

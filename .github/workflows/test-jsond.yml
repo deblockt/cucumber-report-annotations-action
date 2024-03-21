@@ -15,7 +15,7 @@ jobs:
       - run: npm ci
       - run: npm run cucumber-message || true
       - uses: ./
-        name: "full report"
+        name: "JSOND - full report"
         with:
           name: "full report"
           access-token: ${{ secrets.GITHUB_TOKEN }}
