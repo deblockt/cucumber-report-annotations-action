@@ -49,7 +49,6 @@ module.exports.reader = (reportString) => {
                         .forEach(it => {
                             const scenarioSteps = it.background?.steps ?? it.scenario?.steps
                             scenarioSteps.forEach(step => {
-                                core.info(`Add step ${step.id} with line ${step.location.line}`)
                                 steps[step.id] = {
                                     location: step.location
                                 }
@@ -68,7 +67,6 @@ module.exports.reader = (reportString) => {
                     scenario: scenario[element.pickle.astNodeIds[0]]
                 }
                 pk.steps = element.pickle.steps.map(it => {
-                    core.info(`add pickle step ${it.id} with location line ${steps[it.astNodeIds[0]].location.line}`)
                     return ({
                         id: it.id,
                         name: it.text,
@@ -150,13 +148,22 @@ module.exports.reader = (reportString) => {
 function getStepsByStatus(testSteps, status) {
     return Object.values(testSteps)
                 .filter(it => it.result.status === status)
-                .map(it => ({
-                    file: it.pickleStep.pickle.scenario.uri,
-                    line: it.pickleStep.location.line,
-                    title: it.pickleStep.pickle.name,
-                    step: it.pickleStep.name,
-                    error: it.result.message
-                }))
+                .map(it => {
+                    console.log(`step for status ${status}: ${JSON.parse({
+                        file: it.pickleStep.pickle.scenario.uri,
+                        line: it.pickleStep.location.line,
+                        title: it.pickleStep.pickle.name,
+                        step: it.pickleStep.name,
+                        error: it.result.message
+                    })}`)
+                    return ({
+                        file: it.pickleStep.pickle.scenario.uri,
+                        line: it.pickleStep.location.line,
+                        title: it.pickleStep.pickle.name,
+                        step: it.pickleStep.name,
+                        error: it.result.message
+                    })
+                })
 }
 
 function getTestCaseStatus(testCase) {
