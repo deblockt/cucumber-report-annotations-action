@@ -105,7 +105,7 @@ module.exports.reader = (reportString) => {
 
     globalInfo.succeedScenarioNumber = Object.values(testCases)
         .filter(it => getTestCaseStatus(it) === 'success')
-        .length()
+        .length
 
     return {
         get listAllScenarioByFile() {
