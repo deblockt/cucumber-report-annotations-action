@@ -12314,7 +12314,7 @@ function getStepsByStatus(testSteps, status) {
     return Object.values(testSteps)
                 .filter(it => it.result.status === status)
                 .map(it => {
-                    console.log(`step for status ${status}: ${JSON.parse({
+                    console.log(`step for status ${status}: ${JSON.stringify({
                         file: it.pickleStep.pickle.scenario.uri,
                         line: it.pickleStep.location.line,
                         title: it.pickleStep.pickle.name,
