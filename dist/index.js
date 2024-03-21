@@ -12273,7 +12273,7 @@ module.exports.reader = (reportString) => {
                     name: feature.name,
                     scenarios: feature.scenarios
                         .flatMap(scenario =>
-                            scenario.pickles.map(pickle => ({
+                            Object.values(scenario.pickles).map(pickle => ({
                                 name: scenario.name,
                                 status: getTestCaseStatus(pickle.testCase)
                             }))
