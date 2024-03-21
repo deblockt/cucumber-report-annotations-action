@@ -49,6 +49,7 @@ module.exports.reader = (reportString) => {
                         .forEach(it => {
                             const scenarioSteps = it.background?.steps ?? it.scenario?.steps
                             scenarioSteps.forEach(step => {
+                                core.info(`Add step ${step.id} with line ${step.location.line}`)
                                 steps[step.id] = {
                                     location: step.location
                                 }
@@ -66,12 +67,15 @@ module.exports.reader = (reportString) => {
                     name: element.pickle.name,
                     scenario: scenario[element.pickle.astNodeIds[0]]
                 }
-                pk.steps = element.pickle.steps.map(it => ({
-                    id: it.id,
-                    name: it.text,
-                    pickle: pk,
-                    location: steps[it.astNodeIds[0]].location.line
-                }))
+                pk.steps = element.pickle.steps.map(it => {
+                    core.info(`add pickle step ${it.id} with location line ${steps[it.astNodeIds[0]].location.line}`)
+                    return ({
+                        id: it.id,
+                        name: it.text,
+                        pickle: pk,
+                        location: steps[it.astNodeIds[0]].location.line
+                    })
+                })
                 pk.steps.forEach(it => picklesSteps[it.id] = it)
                 scenario[element.pickle.astNodeIds[0]].pickles[element.pickle.id] = pk
                 pickles[element.pickle.id] = pk
