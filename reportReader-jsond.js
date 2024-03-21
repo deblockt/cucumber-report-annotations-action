@@ -103,9 +103,8 @@ module.exports.reader = (reportString) => {
             }
         });
 
-    globalInfo.succeedScenarioNumber = Object.values(testCases)
-        .filter(it => getTestCaseStatus(it) === 'success')
-        .length
+    globalInfo.succeedScenarioNumber = globalInfo.scenarioNumber 
+        - globalInfo.failedScenarioNumber - globalInfo.pendingScenarioNumber - globalInfo.undefinedScenarioNumber;
 
     return {
         get listAllScenarioByFile() {
