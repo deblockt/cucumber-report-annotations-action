@@ -6,11 +6,11 @@
   "scripts": {
     "build": "ncc build --source-map index.js",
     "test": "mocha **/*.spec.js",
-    "cucumber": "cucumber-js cucumber --format json:cucumber-report.json --require '**/step-definitions/**/*.js'",
-    "cucumber-ok": "cucumber-js cucumber --format json:cucumber-report-ok.json --require '**/step-definitions/**/*.js' --tags @SuccessTest",
-    "cucumber-undefined": "cucumber-js cucumber --format json:cucumber-report-undefined.json --require '**/step-definitions/**/*.js' --tags @UndefinedStepTest",
-    "cucumber-non-failed": "cucumber-js cucumber --format json:cucumber-report-non-failed.json --require '**/step-definitions/**/*.js' --tags @NonFailedTest",
-    "cucumber-empty": "cucumber-js cucumber --format json:cucumber-report-empty.json --require '**/step-definitions/**/*.js' --tags @NonExistingTag"
+    "cucumber": "cucumber-js cucumber --format json:cucumber-report.json --format message:cucumber-report.ndjson --require '**/step-definitions/**/*.js'",
+    "cucumber-ok": "cucumber-js cucumber --format json:cucumber-report-ok.json --format message:cucumber-report-ok.ndjson --require '**/step-definitions/**/*.js' --tags @SuccessTest",
+    "cucumber-undefined": "cucumber-js cucumber --format json:cucumber-report-undefined.json --format message:cucumber-report-undefined.ndjson --require '**/step-definitions/**/*.js' --tags @UndefinedStepTest",
+    "cucumber-non-failed": "cucumber-js cucumber --format json:cucumber-report-non-failed.json --format message:cucumber-report-non-failed.ndjson --require '**/step-definitions/**/*.js' --tags @NonFailedTest",
+    "cucumber-empty": "cucumber-js cucumber --format json:cucumber-report-empty.json --format message:cucumber-report-empty.ndjson --require '**/step-definitions/**/*.js' --tags @NonExistingTag"
   },
   "repository": {
     "type": "git",
@@ -30,6 +30,6 @@
   },
   "devDependencies": {
     "@vercel/ncc": "^0.34.0",
-    "cucumber": "^6.0.5"
+    "@cucumber/cucumber": "^10.3.1"
   }
 }

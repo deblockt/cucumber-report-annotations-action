@@ -12,33 +12,34 @@ const EMPTY_GLOBAL_INFO = {
     pendingStepNumber: 0
 }
 
-module.exports.listAllScenarioByFile = (report) => {
-    return report
-        .map(fileReport => fileAllScenario(fileReport))
-}
-
-module.exports.globalInformation = (report) => {
-    return report
-        .map(fileReport => globalFileInformation(fileReport))
-        .reduce((a, b) => sum(a, b), EMPTY_GLOBAL_INFO);
-}
-
-module.exports.failedSteps = (report) => {
-    return report
-        .map(fileReport => fileFailureStepData(fileReport))
-        .reduce((a, b) => a.concat(b), []);
-}
-
-module.exports.undefinedSteps = (report) => {
-    return report
-        .map(fileReport => fileUndefinedStepsData(fileReport))
-        .reduce((a, b) => a.concat(b), []);
-}
-
-module.exports.pendingSteps = (report) => {
-    return report
-        .map(fileReport => filePendingStepsData(fileReport))
-        .reduce((a, b) => a.concat(b), []);
+module.exports.reader = (reportString) => {
+    const report = JSON.parse(reportString)
+    return {
+        get listAllScenarioByFile() {
+            return report
+                .map(fileReport => fileAllScenario(fileReport))
+        },
+        get globalInformation() {
+            return report
+                .map(fileReport => globalFileInformation(fileReport))
+                .reduce((a, b) => sum(a, b), EMPTY_GLOBAL_INFO);
+        },
+        get failedSteps() {
+            return report
+                .map(fileReport => fileFailureStepData(fileReport))
+                .reduce((a, b) => a.concat(b), []);
+        },
+        get undefinedSteps() {
+            return report
+                .map(fileReport => fileUndefinedStepsData(fileReport))
+                .reduce((a, b) => a.concat(b), []);
+        },
+        get pendingSteps() {
+            return report
+                .map(fileReport => filePendingStepsData(fileReport))
+                .reduce((a, b) => a.concat(b), []);
+        }
+    }
 }
 
 function fileFailureStepData(fileReport) {

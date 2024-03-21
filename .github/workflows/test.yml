@@ -21,6 +21,9 @@ jobs:
 
   ubuntu-action-tests:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        extension: ["json", "ndjson"]
     steps:
       - uses: actions/checkout@v3
       - run: npm ci
@@ -32,73 +35,73 @@ jobs:
       - uses: ./
         name: "fail because of error"
         with:
-          name: "failed cucumber report"
+          name: "${{ matrix.extension }}: failed cucumber report"
           access-token: ${{ secrets.GITHUB_TOKEN }}
-          path: "**/cucumber-report.json"
+          path: "**/cucumber-report.${{ matrix.extension }}"
       - uses: ./
         name: "fail because of error (without number of error)"
         with:
-          name: "failed (no number of error)"
+          name: "${{ matrix.extension }}:  failed (no number of error)"
           access-token: ${{ secrets.GITHUB_TOKEN }}
-          path: "**/cucumber-report.json"
+          path: "**/cucumber-report.${{ matrix.extension }}"
           show-number-of-error-on-check-title: false
       - uses: ./
         name: "fail because of error with all annotation"
         with:
-          name: "failed with all annotation"
+          name: "${{ matrix.extension }}: failed with all annotation"
           access-token: ${{ secrets.GITHUB_TOKEN }}
-          path: "**/cucumber-report.json"
+          path: "**/cucumber-report.${{ matrix.extension }}"
           show-number-of-error-on-check-title: false
           annotation-status-on-undefined: notice
           annotation-status-on-pending: notice
       - uses: ./
         name: "fail because of undefined test"
         with:
-          name: "failed because of undefined test"
+          name: "${{ matrix.extension }}: failed because of undefined test"
           access-token: ${{ secrets.GITHUB_TOKEN }}
-          path: "**/cucumber-report-non-failed.json"
+          path: "**/cucumber-report-non-failed.${{ matrix.extension }}"
           check-status-on-undefined: "failure"
           annotation-status-on-undefined: "failure"
       - uses: ./
         name: "fail because of pending test"
         with:
-          name: "failed because of pending test"
+          name: "${{ matrix.extension }}: failed because of pending test"
           access-token: ${{ secrets.GITHUB_TOKEN }}
-          path: "**/cucumber-report-non-failed.json"
+          path: "**/cucumber-report-non-failed.${{ matrix.extension }}"
           check-status-on-pending: "failure"
           annotation-status-on-pending: "failure"
       - uses: ./
         name: "neutral because of error"
         with:
-          name: "neutral cucumber report"
+          name: "${{ matrix.extension }}: neutral cucumber report"
           access-token: ${{ secrets.GITHUB_TOKEN }}
-          path: "**/cucumber-report.json"
+          path: "**/cucumber-report.${{ matrix.extension }}"
           check-status-on-error: 'neutral'
           annotation-status-on-error: 'warning'
       - uses: ./
         name: "sucess because all is ok"
         with:
-          name: "success cucumber report"
+          name: "${{ matrix.extension }}: success cucumber report"
           access-token: ${{ secrets.GITHUB_TOKEN }}
-          path: "**/cucumber-report-ok.json"
+          path: "**/cucumber-report-ok.${{ matrix.extension }}"
           check-status-on-error: 'neutral'
           annotation-status-on-error: 'warning'
       - uses: ./
         id: success-with-empty-cucumber-report
         name: "success with empty cucumber report"
         with:
-          name: "success empty report"
+          name: "${{ matrix.extension }}: success empty report"
           access-token: ${{ secrets.GITHUB_TOKEN }}
-          path: "**/cucumber-report-empty.json"
+          path: "**/cucumber-report-empty.${{ matrix.extension }}"
       - uses: ./
         name: "job with summary"
         with:
-          name: "job with summary"
+          name: "${{ matrix.extension }}: job with summary"
           access-token: ${{ secrets.GITHUB_TOKEN }}
-          path: "**/cucumber-report.json"
+          path: "**/cucumber-report.${{ matrix.extension }}"
           show-global-summary-report: 'true'
       - id: check-output
-        name: "check output for cucumber-report-empty.json"
+        name: "check output for cucumber-report-empty"
         if: steps.success-with-empty-cucumber-report.output.cucumber-report-empty_failed_scenarios != 0
         run: exit 1
       - uses: ./
@@ -106,9 +109,9 @@ jobs:
         continue-on-error: true
         name: "fail job due to failed test"
         with:
-          name: "fail job due to failed test"
+          name: "${{ matrix.extension }}: fail job due to failed test"
           access-token: ${{ secrets.GITHUB_TOKEN }}
-          path: "**/cucumber-report-non-failed.json"
+          path: "**/cucumber-report-non-failed.${{ matrix.extension }}"
           check-status-on-pending: "failure"
           annotation-status-on-pending: "failure"
           number-of-test-error-to-fail-job: 1

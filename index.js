@@ -2,7 +2,8 @@ const core = require('@actions/core');
 const github = require('@actions/github');
 const glob = require("@actions/glob");
 const fs = require("fs");
-const reportReader = require('./reportReader');
+const reportReaderJson = require('./reportReader-json');
+const reportReaderNdJson = require('./reportReader-ndjson');
 
 function memoize(fn) {
     const cache = {};
@@ -123,10 +124,10 @@ function setOutput(core, outputName, summaryScenario, summarySteps) {
     for await (const cucumberReportFile of globber.globGenerator()) {
         core.info("found cucumber report " + cucumberReportFile);
 
-        const repotOutputName = cucumberReportFile.replace(' ', '_').replace('.json', '');
+        const reportOutputName = cucumberReportFile.replace(' ', '_').replace('.json', '');
         const reportResultString = await fs.promises.readFile(cucumberReportFile);
-        const reportResult = JSON.parse(reportResultString);
-        const globalInformation = reportReader.globalInformation(reportResult);
+        const reportResult = (cucumberReportFile.endsWith('.json') ? reportReaderJson : reportReaderNdJson).reader(reportResultString);
+        const globalInformation = reportResult.globalInformation;
         const summaryScenario = {
             'failed': globalInformation.failedScenarioNumber,
             'undefined': globalInformation.undefinedScenarioNumber,
@@ -140,23 +141,23 @@ function setOutput(core, outputName, summaryScenario, summarySteps) {
             'pending': globalInformation.pendingStepNumber,
             'passed': globalInformation.succeedStepsNumber
         };
-        setOutput(core, repotOutputName, summaryScenario, summarySteps);
+        setOutput(core, reportOutputName, summaryScenario, summarySteps);
 
         const summary =
                buildSummary(globalInformation.scenarioNumber, 'Scenarios', summaryScenario)
             + '\n'
             + buildSummary(globalInformation.stepsNumber, 'Steps', summarySteps);
 
-        const errors = reportReader.failedSteps(reportResult);
+        const errors = reportResult.failedSteps;
         var errorAnnotations = await Promise.all(errors.map(e => buildErrorAnnotations(e, annotationStatusOnError)));
 
         if (annotationStatusOnUndefined) {
-            const undefined = reportReader.undefinedSteps(reportResult);
+            const undefined = reportResult.undefinedSteps;
             var undefinedAnnotations = await Promise.all(undefined.map(e => buildUndefinedAnnotation(e, annotationStatusOnUndefined)));
             errorAnnotations.push(...undefinedAnnotations);
         }
         if (annotationStatusOnPending) {
-            const pending = reportReader.pendingSteps(reportResult);
+            const pending = reportResult.pendingSteps;
             var pendingAnnotations = await Promise.all(pending.map(e => buildPendingAnnotation(e, annotationStatusOnPending)));
             errorAnnotations.push(...pendingAnnotations);
         }
@@ -196,7 +197,7 @@ function setOutput(core, outputName, summaryScenario, summarySteps) {
             },
           };
 
-        core.info('Creating summary: ' + summary);
+        core.info('Creating summary:\n' + summary);
         await core.summary
           .addHeading(checkName + additionnalTitleInfo, 4)
           .addRaw("\n" + summary)
@@ -212,7 +213,7 @@ function setOutput(core, outputName, summaryScenario, summarySteps) {
 
         if (showGlobalSummaryReport === 'true') {
             core.info('Building all scenario summary')
-            const allScenarioByFile = reportReader.listAllScenarioByFile(reportResult);
+            const allScenarioByFile = reportResult.listAllScenarioByFile;
             const allAnnoattions = await Promise.all(
                 allScenarioByFile
                     .map(buildReportDetailAnnotation)
