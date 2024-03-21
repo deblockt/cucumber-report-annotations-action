@@ -12182,6 +12182,7 @@ const EMPTY_GLOBAL_INFO = {
 module.exports.reader = (reportString) => {
     const features = []
     const scenario = {}
+    const steps = {}
     const pickles = {}
     const picklesSteps = {}
     const testCases = {}
@@ -12208,6 +12209,17 @@ module.exports.reader = (reportString) => {
                             scenario[sc.id] = sc
                             scenarios.push(sc)
                         })
+                feature.children
+                        .filter(it => "background" in it || "scenario" in it)
+                        .forEach(it => {
+                            const scenarioSteps = it.background?.steps ?? it.scenario?.steps
+                            scenarioSteps.forEach(step => {
+                                steps[step.id] = {
+                                    location: step.location
+                                }
+                            })
+                        })
+
                 features.push({
                     name: feature.name,
                     location: feature.location,
@@ -12222,7 +12234,8 @@ module.exports.reader = (reportString) => {
                 pk.steps = element.pickle.steps.map(it => ({
                     id: it.id,
                     name: it.text,
-                    pickle: pk
+                    pickle: pk,
+                    location: steps[it.astNodeIds[0]].location.line
                 }))
                 pk.steps.forEach(it => picklesSteps[it.id] = it)
                 scenario[element.pickle.astNodeIds[0]].pickles[element.pickle.id] = pk
@@ -12300,7 +12313,7 @@ function getStepsByStatus(testSteps, status) {
                 .filter(it => it.result.status === status)
                 .map(it => ({
                     file: it.pickleStep.pickle.scenario.uri,
-                    line: it.pickleStep.pickle.scenario.location.line,
+                    line: it.pickleStep.location.line,
                     title: it.pickleStep.pickle.name,
                     step: it.pickleStep.name,
                     error: it.result.message
