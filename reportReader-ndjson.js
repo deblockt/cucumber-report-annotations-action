@@ -40,11 +40,9 @@ module.exports.reader = (reportString) => {
                                 uri: element.gherkinDocument.uri,
                                 pickles: {}
                             }
-                            core.info(`add scenario ${sc.id}`)
                             scenario[sc.id] = sc
                             scenarios.push(sc)
                         })
-                core.info(`add feature ${feature.name}, with ${scenarios.length} scenario`)
                 features.push({
                     name: feature.name,
                     location: feature.location,
@@ -62,10 +60,8 @@ module.exports.reader = (reportString) => {
                     pickle: pk
                 }))
                 pk.steps.forEach(it => picklesSteps[it.id] = it)
-                core.info(`search for scenario ${element.pickle.astNodeIds[0]}`)
                 scenario[element.pickle.astNodeIds[0]].pickles[element.pickle.id] = pk
                 pickles[element.pickle.id] = pk
-                core.info(`add pickle ${element.pickle.id}`)
             } else if ("testCase" in element) {
                 globalInfo.scenarioNumber++;
                 const caseTestSteps = element.testCase.testSteps.map(it => ({
@@ -78,8 +74,6 @@ module.exports.reader = (reportString) => {
                     pickleId: element.testCase.pickleId,
                     steps: caseTestSteps
                 }
-                core.info(`add test case for pickle ${element.testCase.pickleId}`)
-
                 pickles[element.testCase.pickleId].testCase = testCase
                 testCases[testCase.id] = testCase
             } else if ("testStepFinished" in element) {
@@ -96,7 +90,7 @@ module.exports.reader = (reportString) => {
                     globalInfo.undefinedScenarioNumber++;
                     globalInfo.undefinedStepsNumber++;
                 } else if (step.result.status === 'SKIPPED') {
-                    globalInfo.skippedStepsNumber++; // TODO à mon avis ça marche pas
+                    globalInfo.skippedStepsNumber++
                 } else if (step.result.status === 'PASSED') {
                     globalInfo.succeedStepsNumber++;
                 }
@@ -125,30 +119,20 @@ module.exports.reader = (reportString) => {
             return globalInfo
         },
         get failedSteps() {
-            return Object.values(testSteps)
-                .filter(it => it.result.status === 'FAILED')
-                .map(it => ({
-                    file: it.pickleStep.pickle.scenario.uri,
-                    line: it.pickleStep.pickle.scenario.location.line,
-                    title: it.pickleStep.pickle.name,
-                    step: it.pickleStep.name,
-                    error: it.result.message
-                }))
+            return getStepsByStatus(testSteps, 'FAILED')
         },
         get undefinedSteps() {
-            return Object.values(testSteps)
-                .filter(it => it.result.status === 'UNDEFINED')
-                .map(it => ({
-                    file: it.pickleStep.pickle.scenario.uri,
-                    line: it.pickleStep.pickle.scenario.location.line,
-                    title: it.pickleStep.pickle.name,
-                    step: it.pickleStep.name,
-                    error: it.result.message
-                }))
+            return getStepsByStatus(testSteps, 'UNDEFINED')
         },
         get pendingSteps() {
-            return Object.values(testSteps)
-                .filter(it => it.result.status === 'PENDING')
+            return getStepsByStatus(testSteps, 'PENDING')
+        }
+    }
+}
+
+function getStepsByStatus(testSteps, status) {
+    return Object.values(testSteps)
+                .filter(it => it.result.status === status)
                 .map(it => ({
                     file: it.pickleStep.pickle.scenario.uri,
                     line: it.pickleStep.pickle.scenario.location.line,
@@ -156,8 +140,6 @@ module.exports.reader = (reportString) => {
                     step: it.pickleStep.name,
                     error: it.result.message
                 }))
-        }
-    }
 }
 
 function getTestCaseStatus(testCase) {

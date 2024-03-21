@@ -3,7 +3,7 @@ const github = require('@actions/github');
 const glob = require("@actions/glob");
 const fs = require("fs");
 const reportReaderJson = require('./reportReader-json');
-const reportReaderJsond = require('./reportReader-jsond');
+const reportReaderNdJson = require('./reportReader-ndjson');
 
 function memoize(fn) {
     const cache = {};
@@ -126,7 +126,7 @@ function setOutput(core, outputName, summaryScenario, summarySteps) {
 
         const reportOutputName = cucumberReportFile.replace(' ', '_').replace('.json', '');
         const reportResultString = await fs.promises.readFile(cucumberReportFile);
-        const reportResult = (cucumberReportFile.endsWith('.json') ? reportReaderJson : reportReaderJsond).reader(reportResultString);
+        const reportResult = (cucumberReportFile.endsWith('.json') ? reportReaderJson : reportReaderNdJson).reader(reportResultString);
         const globalInformation = reportResult.globalInformation;
         const summaryScenario = {
             'failed': globalInformation.failedScenarioNumber,
