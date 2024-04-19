@@ -94,7 +94,6 @@ jobs:
           access-token: ${{ secrets.GITHUB_TOKEN }}
           path: "**/cucumber-report-empty.${{ matrix.extension }}"
       - uses: ./
-        id: job-with-summary
         name: "job with summary"
         with:
           name: "${{ matrix.extension }}: job with summary"
