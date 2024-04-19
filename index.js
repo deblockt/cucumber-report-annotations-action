@@ -4,6 +4,7 @@ const glob = require("@actions/glob");
 const fs = require("fs");
 const reportReaderJson = require('./reportReader-json');
 const reportReaderNdJson = require('./reportReader-ndjson');
+const path = require('path');
 
 function memoize(fn) {
     const cache = {};
@@ -95,11 +96,11 @@ function emojiByStatus(status) {
 
 function setOutput(core, outputName, summaryScenario, summarySteps) {
     for (const type in summaryScenario) {
-        core.info(`publish output ${outputName}_${type}_scenarios=${summaryScenario[type]}`)
+        core.info(`publish output ${outputName}_${type}_scenarios=${summaryScenario[type]}`);
         core.setOutput(`${outputName}_${type}_scenarios`, summaryScenario[type]);
     }
     for (const type in summarySteps) {
-        core.info(`publish output ${outputName}_${type}_steps=${summaryScenario[type]}`)
+        core.info(`publish output ${outputName}_${type}_steps=${summaryScenario[type]}`);
         core.setOutput(`${outputName}_${type}_steps`, summaryScenario[type]);
     }
 }
