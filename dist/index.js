@@ -12618,11 +12618,11 @@ function emojiByStatus(status) {
 
 function setOutput(core, outputName, summaryScenario, summarySteps) {
     for (const type in summaryScenario) {
-        core.info(`publish output ${outputName}_${type}_scenarios=${summaryScenario[type]}`);
+        core.debug(`publish output ${outputName}_${type}_scenarios=${summaryScenario[type]}`);
         core.setOutput(`${outputName}_${type}_scenarios`, summaryScenario[type]);
     }
     for (const type in summarySteps) {
-        core.info(`publish output ${outputName}_${type}_steps=${summaryScenario[type]}`);
+        core.debug(`publish output ${outputName}_${type}_steps=${summaryScenario[type]}`);
         core.setOutput(`${outputName}_${type}_steps`, summaryScenario[type]);
     }
 }
@@ -12666,7 +12666,6 @@ function setOutput(core, outputName, summaryScenario, summarySteps) {
             'pending': globalInformation.pendingStepNumber,
             'passed': globalInformation.succeedStepsNumber
         };
-        core.setOutput('test', 'value')
         setOutput(core, reportOutputName, summaryScenario, summarySteps);
 
         const summary =

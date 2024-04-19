@@ -101,22 +101,9 @@ jobs:
           access-token: ${{ secrets.GITHUB_TOKEN }}
           path: "**/cucumber-report.${{ matrix.extension }}"
           show-global-summary-report: 'true'
-      - id: output-shell
-        run: |
-          echo "test=testValue" >> "$GITHUB_OUTPUT"
-      - name: Set color
-        id: color-selector
-        run: echo "SELECTED_COLOR=green" >> "$GITHUB_OUTPUT"
-      - name: Get color
-        env:
-          SELECTED_COLOR: ${{ steps.color-selector.outputs.SELECTED_COLOR }}
-        run: echo "The selected color is $SELECTED_COLOR"
       - id: print-output
         name: "print output check"
         run: |
-          echo "steps.output-shell.output.test: ${{steps.output-shell.outputs.test}}"
-          echo "steps.job-with-summary.output.test: ${{steps.job-with-summary.outputs.test}}"
-          echo "steps.success-with-empty-cucumber-report.output.test: ${{steps.success-with-empty-cucumber-report.outputs.test}}"
           echo "steps.success-with-empty-cucumber-report.output.cucumber-report-empty_failed_scenarios: ${{steps.success-with-empty-cucumber-report.outputs.cucumber-report-empty_failed_scenarios}}"
       - id: check-output
         name: "check output for cucumber-report-empty"
