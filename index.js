@@ -144,6 +144,7 @@ function setOutput(core, outputName, summaryScenario, summarySteps) {
             'pending': globalInformation.pendingStepNumber,
             'passed': globalInformation.succeedStepsNumber
         };
+        core.setOutput('test', 'value')
         setOutput(core, reportOutputName, summaryScenario, summarySteps);
 
         const summary =

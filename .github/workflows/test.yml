@@ -94,6 +94,7 @@ jobs:
           access-token: ${{ secrets.GITHUB_TOKEN }}
           path: "**/cucumber-report-empty.${{ matrix.extension }}"
       - uses: ./
+        id: job-with-summary
         name: "job with summary"
         with:
           name: "${{ matrix.extension }}: job with summary"
@@ -103,6 +104,8 @@ jobs:
       - id: print-output
         name: "print output check"
         run: |
+          echo "steps.job-with-summary.output.test: ${{steps.job-with-summary.output.test}}"
+          echo "steps.success-with-empty-cucumber-report.output.test: ${{steps.success-with-empty-cucumber-report.output.test}}"
           echo "steps.success-with-empty-cucumber-report.output.cucumber-report-empty_failed_scenarios: ${{steps.success-with-empty-cucumber-report.output.cucumber-report-empty_failed_scenarios}}"
       - id: check-output
         name: "check output for cucumber-report-empty"
