@@ -12648,7 +12648,7 @@ function setOutput(core, outputName, summaryScenario, summarySteps) {
     for await (const cucumberReportFile of globber.globGenerator()) {
         core.info("found cucumber report " + cucumberReportFile);
 
-        const reportOutputName = cucumberReportFile.replace(' ', '_').replace('.json', '');
+        const reportOutputName = path.basename(cucumberReportFile).replace(' ', '_').replace('.json', '');
         const reportResultString = await fs.promises.readFile(cucumberReportFile);
         const reportResult = (cucumberReportFile.endsWith('.json') ? reportReaderJson : reportReaderNdJson).reader(reportResultString);
         const globalInformation = reportResult.globalInformation;
