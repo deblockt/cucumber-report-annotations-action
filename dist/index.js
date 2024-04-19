@@ -12526,6 +12526,7 @@ const glob = __nccwpck_require__(8090);
 const fs = __nccwpck_require__(7147);
 const reportReaderJson = __nccwpck_require__(8797);
 const reportReaderNdJson = __nccwpck_require__(7069);
+const path = __nccwpck_require__(1017);
 
 function memoize(fn) {
     const cache = {};
@@ -12617,9 +12618,11 @@ function emojiByStatus(status) {
 
 function setOutput(core, outputName, summaryScenario, summarySteps) {
     for (const type in summaryScenario) {
+        core.debug(`publish output ${outputName}_${type}_scenarios=${summaryScenario[type]}`);
         core.setOutput(`${outputName}_${type}_scenarios`, summaryScenario[type]);
     }
     for (const type in summarySteps) {
+        core.debug(`publish output ${outputName}_${type}_steps=${summaryScenario[type]}`);
         core.setOutput(`${outputName}_${type}_steps`, summaryScenario[type]);
     }
 }
@@ -12646,7 +12649,7 @@ function setOutput(core, outputName, summaryScenario, summarySteps) {
     for await (const cucumberReportFile of globber.globGenerator()) {
         core.info("found cucumber report " + cucumberReportFile);
 
-        const reportOutputName = cucumberReportFile.replace(' ', '_').replace('.json', '');
+        const reportOutputName = path.basename(cucumberReportFile).replace(' ', '_').replace('.json', '');
         const reportResultString = await fs.promises.readFile(cucumberReportFile);
         const reportResult = (cucumberReportFile.endsWith('.json') ? reportReaderJson : reportReaderNdJson).reader(reportResultString);
         const globalInformation = reportResult.globalInformation;
