@@ -101,10 +101,6 @@ jobs:
           access-token: ${{ secrets.GITHUB_TOKEN }}
           path: "**/cucumber-report.${{ matrix.extension }}"
           show-global-summary-report: 'true'
-      - id: print-output
-        name: "print output check"
-        run: |
-          echo "steps.success-with-empty-cucumber-report.output.cucumber-report-empty_failed_scenarios: ${{steps.success-with-empty-cucumber-report.outputs.cucumber-report-empty_failed_scenarios}}"
       - id: check-output
         name: "check output for cucumber-report-empty"
         if: steps.success-with-empty-cucumber-report.outputs.cucumber-report-empty_failed_scenarios != 0
