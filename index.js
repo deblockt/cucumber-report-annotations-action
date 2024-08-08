@@ -94,14 +94,14 @@ function emojiByStatus(status) {
     }
 }
 
-function setOutput(core, outputName, summaryScenario, summarySteps) {
+function setOutput(core, summaryScenario, summarySteps) {
     for (const type in summaryScenario) {
-        core.debug(`publish output ${outputName}_${type}_scenarios=${summaryScenario[type]}`);
-        core.setOutput(`${outputName}_${type}_scenarios`, summaryScenario[type]);
+        core.debug(`publish output cucumber-report_${type}_scenarios=${summaryScenario[type]}`);
+        core.setOutput(`cucumber-report_${type}_scenarios`, summaryScenario[type]);
     }
     for (const type in summarySteps) {
-        core.debug(`publish output ${outputName}_${type}_steps=${summaryScenario[type]}`);
-        core.setOutput(`${outputName}_${type}_steps`, summaryScenario[type]);
+        core.debug(`publish output cucumber-report_${type}_steps=${summarySteps[type]}`);
+        core.setOutput(`cucumber-report_${type}_steps`, summarySteps[type]);
     }
 }
 
@@ -127,7 +127,6 @@ function setOutput(core, outputName, summaryScenario, summarySteps) {
     for await (const cucumberReportFile of globber.globGenerator()) {
         core.info("found cucumber report " + cucumberReportFile);
 
-        const reportOutputName = path.basename(cucumberReportFile).replace(' ', '_').replace('.json', '');
         const reportResultString = await fs.promises.readFile(cucumberReportFile);
         const reportResult = (cucumberReportFile.endsWith('.json') ? reportReaderJson : reportReaderNdJson).reader(reportResultString);
         const globalInformation = reportResult.globalInformation;
@@ -144,7 +143,7 @@ function setOutput(core, outputName, summaryScenario, summarySteps) {
             'pending': globalInformation.pendingStepNumber,
             'passed': globalInformation.succeedStepsNumber
         };
-        setOutput(core, reportOutputName, summaryScenario, summarySteps);
+        setOutput(core, summaryScenario, summarySteps);
 
         const summary =
                buildSummary(globalInformation.scenarioNumber, 'Scenarios', summaryScenario)

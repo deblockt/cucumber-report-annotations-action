@@ -36,13 +36,13 @@ This GitHub Action supports two formats:
 
 ## Outputs
 
-The following variables are available as output (where the output name is the JSON file name with spaces replaced by underscores and without the '.json' extension):
+The following variables are available as output:
 
-- `${output}_failed_scenarios`: Number of failed scenarios.
-- `${output}_undefined_scenarios`: Number of undefined scenarios.
-- `${output}_pending_scenarios`: Number of pending scenarios.
-- `${output}_passed_scenarios`: Number of passed scenarios.
-- `${output}_failed_steps`: Number of failed steps.
-- `${output}_undefined_steps`: Number of undefined steps.
-- `${output}_pending_steps`: Number of pending steps.
-- `${output}_passed_steps`: Number of passed steps.
+- `cucumber-report_failed_scenarios`: Number of failed scenarios.
+- `cucumber-report_undefined_scenarios`: Number of undefined scenarios.
+- `cucumber-report_pending_scenarios`: Number of pending scenarios.
+- `cucumber-report_passed_scenarios`: Number of passed scenarios.
+- `cucumber-report_failed_steps`: Number of failed steps.
+- `cucumber-report_undefined_steps`: Number of undefined steps.
+- `cucumber-report_pending_steps`: Number of pending steps.
+- `cucumber-report_passed_steps`: Number of passed steps.
