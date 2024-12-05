@@ -22,9 +22,9 @@ This GitHub Action supports two formats:
 
 ## Parameters
 
-- **access-token** (required): The GitHub token to allow the action to add checks.
+- **access-token** (optional, default: "${{ github.token }}"): The GitHub token to allow the action to add checks.
 - **name** (optional, default: "Cucumber report"): The check name.
-- **path** (optional, default: `**/cucumber-report.json`): The glob pattern to locate the Cucumber report file in JSON format.
+- **path** (optional, default: "**/cucumber-report.json"): The glob pattern to locate the Cucumber report file in JSON format.
 - **check-status-on-error** (optional, default: "failure"): The check status to use for Cucumber errors. Options: `neutral`, `failure`.
 - **check-status-on-undefined** (optional, default: "success"): The check status to use for undefined steps. Options: `success`, `neutral`, `failure`.
 - **check-status-on-pending** (optional, default: "success"): The check status to use for pending steps. Options: `success`, `neutral`, `failure`.
