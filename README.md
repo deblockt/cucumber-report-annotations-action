@@ -1,7 +1,3 @@
-Here’s the corrected version of your README file with improved consistency and fixed typos:
-
----
-
 # Cucumber Report Annotations Action
 
 This GitHub Action publishes action annotations from Cucumber reports.
