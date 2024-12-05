@@ -22,17 +22,22 @@ This GitHub Action supports two formats:
 
 ## Parameters
 
-- **access-token** (optional, default: "${{ github.token }}"): The GitHub token to allow the action to add checks.
-- **name** (optional, default: "Cucumber report"): The check name.
-- **path** (optional, default: "**/cucumber-report.json"): The glob pattern to locate the Cucumber report file in JSON format.
-- **check-status-on-error** (optional, default: "failure"): The check status to use for Cucumber errors. Options: `neutral`, `failure`.
-- **check-status-on-undefined** (optional, default: "success"): The check status to use for undefined steps. Options: `success`, `neutral`, `failure`.
-- **check-status-on-pending** (optional, default: "success"): The check status to use for pending steps. Options: `success`, `neutral`, `failure`.
-- **annotation-status-on-error** (optional, default: "failure"): The annotation status for errors. Options: `notice`, `warning`, `failure`.
-- **annotation-status-on-undefined** (optional): The annotation status for undefined steps. Options: `notice`, `warning`, `failure`. If not set, no annotation will be generated for undefined steps.
-- **annotation-status-on-pending** (optional): The annotation status for pending steps. Options: `notice`, `warning`, `failure`. If not set, no annotation will be generated for pending steps.
-- **number-of-test-error-to-fail-job** (optional, default: -1): The threshold of failed tests to fail the build. If set to `-1`, the action will never fail the build.
-- **show-global-summary-report** (optional): If `true`, a full summary report will be displayed for each feature file.
+All parameters in this action are optional, allowing flexibility in configuration based on your needs.
+
+| **Input Name**                          | **Description**                                                                         | **Default**               | **Options**                     |
+|-----------------------------------------|-----------------------------------------------------------------------------------------|---------------------------|---------------------------------|
+| **access-token**                        | GitHub token.                                                                           | `${{ github.token }}`     |                                 |
+| **path**                                | Glob pattern to locate Cucumber JSON files.                                             | `**/cucumber-report.json` |                                 |
+| **name**                                | The name of the check.                                                                  | `Cucumber report`         |                                 |
+| **check-status-on-error**               | Check status for Cucumber errors.                                                       | `failure`                 | `success`, `neutral`, `failure` |
+| **check-status-on-undefined**           | Check status for undefined steps.                                                       | `success`                 | `success`, `neutral`, `failure` |
+| **check-status-on-pending**             | Check status for pending steps.                                                         | `success`                 | `success`, `neutral`, `failure` |
+| **annotation-status-on-error**          | Annotation status for errors.                                                           | `failure`                 | `notice`, `warning`, `failure`  |
+| **annotation-status-on-undefined**      | Annotation status for undefined steps. No annotation if not set.                        |                           | `notice`, `warning`, `failure`  |
+| **annotation-status-on-pending**        | Annotation status for pending steps. No annotation if not set.                          |                           | `notice`, `warning`, `failure`  |
+| **show-number-of-error-on-check-title** | Show the number of errors in the check title (visible in PR checks).                    | `true`                    | `true`, `false`                 |
+| **show-global-summary-report**          | Display a full summary report for each feature file.                                    | `false`                   | `true`, `false`                 |
+| **number-of-test-error-to-fail-job**    | Number of test errors required to fail the build. <br> `-1` prevents the build from failing. | `-1`                      |                                 |
 
 ## Outputs
 
