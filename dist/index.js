@@ -33976,8 +33976,12 @@ async function findBestFileMatch(file) {
         const repoName = github.context.repo.repo;
         const indexOfRepoName = featureFile.indexOf(repoName);
         const filePathWithoutWorkspace = featureFile.substring(indexOfRepoName + repoName.length * 2 + 2);
+
+        core.debug(`Best path found for ${file} is ${filePathWithoutWorkspace}.`);
         return filePathWithoutWorkspace;
     }
+
+    core.debug(`No file found for ${file}.`);
 
     return undefined;
 }
