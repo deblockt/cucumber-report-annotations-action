@@ -105,6 +105,27 @@ jobs:
         if: steps.success-with-empty-cucumber-report.outputs.cucumber-report-empty_failed_scenarios != 0
         run: exit 1
       - uses: ./
+        id: set-fail-file-not-found
+        continue-on-error: true
+        name: "fail because no report found"
+        with:
+          path: "**/report-not-found.json"
+          access-token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: ./
+        id: set-success-when-no-file-found
+        continue-on-error: true
+        name: "success because ignore no file found"
+        with:
+          path: "**/report-not-found.json"
+          access-token: ${{ secrets.GITHUB_TOKEN }}
+          ignore-no-report-found: 'true'
+      - name: 'check that set-fail-file-not-found outcome is failed'
+        if: steps.set-fail-file-not-found.outcome == 'failure'
+        run: exit 0
+      - name: 'check that set-fail-file-not-found outcome is failed'
+        if: steps.set-fail-file-not-found.outcome != 'failure'
+        run: exit 1
+      - uses: ./
         id: job-failed
         continue-on-error: true
         name: "fail job due to failed test"
