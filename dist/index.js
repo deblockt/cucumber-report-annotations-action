@@ -33981,7 +33981,7 @@ async function findBestFileMatch(file) {
         return filePathWithoutWorkspace;
     }
 
-    core.debug(`No file found for ${file}.`);
+    core.warning(`No file matching "${file}" was found in the project.`);
 
     return undefined;
 }
