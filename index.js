@@ -122,13 +122,22 @@ function setOutput(core, outputName, summaryScenario, summarySteps) {
     const showNumberOfErrorOnCheckTitle = core.getInput('show-number-of-error-on-check-title');
     const numberOfTestErrorToFailJob = core.getInput('number-of-test-error-to-fail-job');
     const showGlobalSummaryReport = core.getInput('show-global-summary-report')
+    const ignoreNoReportFound = core.getInput('ignore-no-report-found');
     const globber = await glob.create(inputPath, {
         followSymbolicLinks: false,
     });
-
     core.info("start to read cucumber logs using path " + inputPath);
 
-    for await (const cucumberReportFile of globber.globGenerator()) {
+    const reportFiles = await globber.glob();
+    if (reportFiles.length === 0) {
+        if (ignoreNoReportFound === 'false') {
+            core.setFailed(`No file matching "${inputPath}" was found in the project.`);
+        } else {
+            core.info(`No file matching "${inputPath}" was found in the project.`);
+        }
+        return;
+    }
+    for await (const cucumberReportFile of reportFiles) {
         core.info("found cucumber report " + cucumberReportFile);
 
         const reportOutputName = path.basename(cucumberReportFile).replace(' ', '_').replace('.json', '');

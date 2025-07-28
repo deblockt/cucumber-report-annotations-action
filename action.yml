@@ -46,6 +46,10 @@ inputs:
     description: "indicate the number of test in error to fail the build. If the value is -1 this action will never fail the build."
     require: true
     default: -1
+  ignore-no-report-found:
+    description: "if it is set to true, the action will not fail if no cucumber report file is found. If it is set to false, the action will fail if no cucumber report file is found."
+    require: true
+    default: 'false'
   name:
     description: "the name of the check"
     require: true
