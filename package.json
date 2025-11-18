@@ -30,6 +30,6 @@
   },
   "devDependencies": {
     "@vercel/ncc": "^0.34.0",
-    "@cucumber/cucumber": "^10.3.1"
+    "@cucumber/cucumber": "^12.2.0"
   }
 }
