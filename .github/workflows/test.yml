@@ -103,6 +103,13 @@ jobs:
           access-token: ${{ secrets.GITHUB_TOKEN }}
           path: "**/cucumber-report.${{ matrix.extension }}"
           show-global-summary-report: 'true'
+      - uses: ./
+        name: "job with summary and scenarios excluded by tag filter"
+        with:
+          name: "${{ matrix.extension }}: job with summary and tag filter"
+          access-token: ${{ secrets.GITHUB_TOKEN }}
+          path: "**/cucumber-report-ok.${{ matrix.extension }}"
+          show-global-summary-report: 'true'
       - id: check-output
         name: "check output for cucumber-report-empty"
         if: steps.success-with-empty-cucumber-report.outputs.cucumber-report-empty_failed_scenarios != 0

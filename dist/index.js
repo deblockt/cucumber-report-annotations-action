@@ -60764,12 +60764,16 @@ module.exports.reader = (reportString) => {
                     name: feature.name,
                     scenarios: feature.scenarios
                         .flatMap(scenario =>
-                            Object.values(scenario.pickles).map(pickle => ({
-                                name: scenario.name,
-                                status: getTestCaseStatus(pickle.testCase)
-                            }))
+                            Object.values(scenario.pickles)
+                                // pickles excluded by a tag filter have no test case
+                                .filter(pickle => pickle.testCase)
+                                .map(pickle => ({
+                                    name: scenario.name,
+                                    status: getTestCaseStatus(pickle.testCase)
+                                }))
                         )
                 }))
+                .filter(feature => feature.scenarios.length > 0)
         },
         get globalInformation() {
             return globalInfo
