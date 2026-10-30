@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "build": "ncc build --source-map index.js",
-    "test": "mocha **/*.spec.js",
+    "test": "mocha 'test/**/*.spec.js'",
     "cucumber": "cucumber-js cucumber --format json:cucumber-report.json --format message:cucumber-report.ndjson --require '**/step-definitions/**/*.js'",
     "cucumber-ok": "cucumber-js cucumber --format json:cucumber-report-ok.json --format message:cucumber-report-ok.ndjson --require '**/step-definitions/**/*.js' --tags @SuccessTest",
     "cucumber-undefined": "cucumber-js cucumber --format json:cucumber-report-undefined.json --format message:cucumber-report-undefined.ndjson --require '**/step-definitions/**/*.js' --tags @UndefinedStepTest",
@@ -29,7 +29,8 @@
     "@actions/glob": "^0.5.1"
   },
   "devDependencies": {
+    "@cucumber/cucumber": "^13.0.0",
     "@vercel/ncc": "^0.44.0",
-    "@cucumber/cucumber": "^13.0.0"
+    "mocha": "^12.0.3"
   }
 }

@@ -1,0 +1,58 @@
+[
+  {
+    "description": "",
+    "elements": [
+      {
+        "description": "",
+        "id": "scenario-with-passing-hooks;scenario-with-before-and-after-hooks",
+        "keyword": "Scenario",
+        "line": 4,
+        "name": "Scenario with before and after hooks",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 154167
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 5,
+            "name": "this step will success",
+            "match": {
+              "location": "test/fixtures/support/steps.js:4"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 59249
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 16333
+            }
+          }
+        ],
+        "tags": [
+          {
+            "name": "@passing-hooks",
+            "line": 3
+          }
+        ],
+        "type": "scenario"
+      }
+    ],
+    "id": "scenario-with-passing-hooks",
+    "line": 1,
+    "keyword": "Feature",
+    "name": "Scenario with passing hooks",
+    "tags": [],
+    "uri": "test/fixtures/features/passing-hooks.feature"
+  }
+]

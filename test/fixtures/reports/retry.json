@@ -1,0 +1,38 @@
+[
+  {
+    "description": "",
+    "elements": [
+      {
+        "description": "",
+        "id": "scenario-retried;scenario-failing-on-each-attempt",
+        "keyword": "Scenario",
+        "line": 3,
+        "name": "Scenario failing on each attempt",
+        "steps": [
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 4,
+            "name": "this step will fail",
+            "match": {
+              "location": "test/fixtures/support/steps.js:7"
+            },
+            "result": {
+              "status": "failed",
+              "duration": 53540,
+              "error_message": "AssertionError [ERR_ASSERTION]: this step allways fail\n    at World.<anonymous> (test/fixtures/support/steps.js:8:12)"
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      }
+    ],
+    "id": "scenario-retried",
+    "line": 1,
+    "keyword": "Feature",
+    "name": "Scenario retried",
+    "tags": [],
+    "uri": "test/fixtures/features/retry.feature"
+  }
+]
