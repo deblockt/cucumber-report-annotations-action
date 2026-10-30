@@ -168,6 +168,12 @@ for (const [extension, reportReader] of Object.entries(readers)) {
                 assert.strictEqual(failedSteps[0].title, 'Scenario failing in before hook');
                 assert.match(failedSteps[0].error, /this before hook allways fail/);
             });
+
+            it('should annotate the failing hook on the scenario line', () => {
+                const failedStep = report.failedSteps[0];
+                assert.strictEqual(failedStep.step, 'Before hook');
+                assert.strictEqual(failedStep.line, 4);
+            });
         });
 
         describe('scenario with passing hooks', () => {

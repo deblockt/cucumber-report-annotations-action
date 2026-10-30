@@ -60529,21 +60529,12 @@ function globalFileInformation(reportFile) {
     const pendingScenarioNumber = scenario
         .filter(scenario => hasPending(scenario))
         .length;
-    const stepsNumber = reportFile.elements
-        .map(scenario => scenario.steps.length)
-        .reduce((a, b) => a + b, 0);
-    const failedStepsNumber = reportFile.elements
-        .map(scenario => getFailedSteps(scenario).length)
-        .reduce((a, b) => a + b, 0);
-    const skippedStepsNumber = reportFile.elements
-        .map(scenario => getSkippedSteps(scenario).length)
-        .reduce((a, b) => a + b, 0);
-    const undefinedStepsNumber = reportFile.elements
-        .map(scenario => getUndefinedSteps(scenario).length)
-        .reduce((a, b) => a + b, 0);
-    const pendingStepNumber = reportFile.elements
-        .map(scenario => getPendingSteps(scenario).length)
-        .reduce((a, b) => a + b, 0);
+    // hooks are used for the scenario status but are not counted as steps
+    const stepsNumber = countStepsWithoutHooks(reportFile, () => true);
+    const failedStepsNumber = countStepsWithoutHooks(reportFile, step => step.result.status === 'failed');
+    const skippedStepsNumber = countStepsWithoutHooks(reportFile, step => step.result.status === 'skipped');
+    const undefinedStepsNumber = countStepsWithoutHooks(reportFile, step => step.result.status === 'undefined');
+    const pendingStepNumber = countStepsWithoutHooks(reportFile, step => step.result.status === 'pending');
 
     const result =  {
         scenarioNumber: scenario.length,
@@ -60562,11 +60553,23 @@ function globalFileInformation(reportFile) {
     return result;
 }
 
+// depending on the cucumber version, hooks are in before/after or in steps with the hidden flag
+function isHook(scenario, step) {
+    return step.hidden
+        || (scenario.before || []).includes(step)
+        || (scenario.after || []).includes(step);
+}
+
+function countStepsWithoutHooks(reportFile, predicate) {
+    return reportFile.elements
+        .map(scenario => (scenario.steps || [])
+            .filter(step => !isHook(scenario, step) && predicate(step))
+            .length)
+        .reduce((a, b) => a + b, 0);
+}
+
 function getFailedSteps(scenario) {
     return getStepByStatus(scenario, 'failed');
-}
-function getSkippedSteps(scenario) {
-    return getStepByStatus(scenario, 'skipped');
 }
 function getUndefinedSteps(scenario) {
     return getStepByStatus(scenario, 'undefined');
@@ -60623,14 +60626,26 @@ function buildPendingData(fileReport, scenario) {
     return buildStepData(fileReport, scenario, getPendingSteps);
 }
 
+function getHookName(scenario, hook) {
+    if (hook.keyword) {
+        return `${hook.keyword.trim()} hook`;
+    } else if ((scenario.before || []).includes(hook)) {
+        return 'Before hook';
+    } else if ((scenario.after || []).includes(hook)) {
+        return 'After hook';
+    }
+    return 'Hook';
+}
+
 function buildStepData(fileReport, scenario, getStepsFunction) {
-    const skippedStep = getStepsFunction(scenario)[0];
+    const step = getStepsFunction(scenario)[0];
+    const stepIsHook = isHook(scenario, step);
     return {
         file: fileReport.uri,
-        line: skippedStep.line,
+        line: stepIsHook ? scenario.line : step.line,
         title: scenario.name,
-        step: skippedStep.name,
-        error: skippedStep.result.error_message
+        step: stepIsHook ? getHookName(scenario, step) : step.name,
+        error: step.result.error_message
     }
 }
 
@@ -60661,18 +60676,22 @@ module.exports.reader = (reportString) => {
     const steps = {}
     const pickles = {}
     const picklesSteps = {}
+    const hooks = {}
     const testCases = {}
-    const testSteps = {}
-    const globalInfo = { ...EMPTY_GLOBAL_INFO }
+    const testCasesStarted = {}
+    const finishedTestCases = []
     reportString
         .toString().split('\n')
         .filter(it => it !== '')
         .forEach(line => {
-            const element = JSON.parse(line)    
+            const element = JSON.parse(line)
             if ("gherkinDocument" in element) {
                 const feature = element.gherkinDocument.feature
+                // scenarios and backgrounds can be nested in rules
+                const children = feature.children
+                        .flatMap(it => "rule" in it ? it.rule.children : [it])
                 const scenarios = []
-                feature.children
+                children
                         .filter(it => "scenario" in it)
                         .forEach(it => {
                             const sc = {
@@ -60685,7 +60704,7 @@ module.exports.reader = (reportString) => {
                             scenario[sc.id] = sc
                             scenarios.push(sc)
                         })
-                feature.children
+                children
                         .filter(it => "background" in it || "scenario" in it)
                         .forEach(it => {
                             const scenarioSteps = it.background?.steps ?? it.scenario?.steps
@@ -60711,50 +60730,49 @@ module.exports.reader = (reportString) => {
                     return ({
                         id: it.id,
                         name: it.text,
-                        pickle: pk,
                         location: steps[it.astNodeIds[0]].location
                     })
                 })
                 pk.steps.forEach(it => picklesSteps[it.id] = it)
                 scenario[element.pickle.astNodeIds[0]].pickles[element.pickle.id] = pk
                 pickles[element.pickle.id] = pk
+            } else if ("hook" in element) {
+                hooks[element.hook.id] = element.hook
             } else if ("testCase" in element) {
-                globalInfo.scenarioNumber++;
-                const caseTestSteps = element.testCase.testSteps.map(it => ({
-                    id: it.id,
-                    pickleStep: picklesSteps[it.pickleStepId]
-                }))
-                caseTestSteps.forEach(it => testSteps[it.id] = it)
                 const testCase = {
                     id: element.testCase.id,
-                    pickleId: element.testCase.pickleId,
-                    steps: caseTestSteps
+                    pickle: pickles[element.testCase.pickleId],
+                    // hook steps have a hookId instead of a pickleStepId
+                    steps: element.testCase.testSteps.map(it => ({
+                        id: it.id,
+                        pickleStep: picklesSteps[it.pickleStepId],
+                        hook: hooks[it.hookId]
+                    }))
                 }
-                pickles[element.testCase.pickleId].testCase = testCase
                 testCases[testCase.id] = testCase
-            } else if ("testStepFinished" in element) {
-                globalInfo.stepsNumber++;
-                const step = testSteps[element.testStepFinished.testStepId]
-                step.result = element.testStepFinished.testStepResult
-                if (step.result.status === 'FAILED') {
-                    globalInfo.failedScenarioNumber++;
-                    globalInfo.failedStepsNumber++;
-                } else if (step.result.status === 'PENDING') {
-                    globalInfo.pendingScenarioNumber++;
-                    globalInfo.pendingStepNumber++;
-                } else if (step.result.status === 'UNDEFINED') {
-                    globalInfo.undefinedScenarioNumber++;
-                    globalInfo.undefinedStepsNumber++;
-                } else if (step.result.status === 'SKIPPED') {
-                    globalInfo.skippedStepsNumber++
-                } else if (step.result.status === 'PASSED') {
-                    globalInfo.succeedStepsNumber++;
+            } else if ("testCaseStarted" in element) {
+                testCasesStarted[element.testCaseStarted.id] = {
+                    testCase: testCases[element.testCaseStarted.testCaseId],
+                    results: {}
                 }
+            } else if ("testStepFinished" in element) {
+                const testCaseStarted = testCasesStarted[element.testStepFinished.testCaseStartedId]
+                testCaseStarted.results[element.testStepFinished.testStepId] = element.testStepFinished.testStepResult
+            } else if ("testCaseFinished" in element) {
+                const testCaseStartedId = element.testCaseFinished.testCaseStartedId
+                // only the last attempt of a retried test case is kept
+                if (!element.testCaseFinished.willBeRetried) {
+                    const testCaseStarted = testCasesStarted[testCaseStartedId]
+                    const testCase = testCaseStarted.testCase
+                    testCase.steps.forEach(step => step.result = testCaseStarted.results[step.id])
+                    testCase.pickle.testCase = testCase
+                    finishedTestCases.push(testCase)
+                }
+                delete testCasesStarted[testCaseStartedId]
             }
         });
 
-    globalInfo.succeedScenarioNumber = globalInfo.scenarioNumber 
-        - globalInfo.failedScenarioNumber - globalInfo.pendingScenarioNumber - globalInfo.undefinedScenarioNumber;
+    const globalInfo = globalInformation(finishedTestCases)
 
     return {
         get listAllScenarioByFile() {
@@ -60779,29 +60797,81 @@ module.exports.reader = (reportString) => {
             return globalInfo
         },
         get failedSteps() {
-            return getStepsByStatus(testSteps, 'FAILED')
+            return getStepsByStatus(finishedTestCases, 'FAILED')
         },
         get undefinedSteps() {
-            return getStepsByStatus(testSteps, 'UNDEFINED')
+            return getStepsByStatus(finishedTestCases, 'UNDEFINED')
         },
         get pendingSteps() {
-            return getStepsByStatus(testSteps, 'PENDING')
+            return getStepsByStatus(finishedTestCases, 'PENDING')
         }
     }
 }
 
-function getStepsByStatus(testSteps, status) {
-    return Object.values(testSteps)
-                .filter(it => it.result.status === status)
-                .map(it => {
-                    return ({
-                        file: it.pickleStep.pickle.scenario.uri,
-                        line: it.pickleStep.location.line,
-                        title: it.pickleStep.pickle.name,
-                        step: it.pickleStep.name,
-                        error: it.result.message
+function globalInformation(testCases) {
+    const globalInfo = { ...EMPTY_GLOBAL_INFO }
+    testCases.forEach(testCase => {
+        // hooks are used for the scenario status but are not counted as steps
+        const allStatuses = testCase.steps.map(step => step.result.status)
+        const stepStatuses = testCase.steps
+            .filter(step => step.pickleStep)
+            .map(step => step.result.status)
+        const countSteps = status => stepStatuses.filter(it => it === status).length
+
+        globalInfo.scenarioNumber++
+        if (allStatuses.includes('FAILED')) {
+            globalInfo.failedScenarioNumber++
+        }
+        if (allStatuses.includes('PENDING')) {
+            globalInfo.pendingScenarioNumber++
+        }
+        if (allStatuses.includes('UNDEFINED')) {
+            globalInfo.undefinedScenarioNumber++
+        }
+
+        globalInfo.stepsNumber += stepStatuses.length
+        globalInfo.failedStepsNumber += countSteps('FAILED')
+        globalInfo.pendingStepNumber += countSteps('PENDING')
+        globalInfo.undefinedStepsNumber += countSteps('UNDEFINED')
+        globalInfo.skippedStepsNumber += countSteps('SKIPPED')
+        globalInfo.succeedStepsNumber += countSteps('PASSED')
+    })
+
+    globalInfo.succeedScenarioNumber = globalInfo.scenarioNumber
+        - globalInfo.failedScenarioNumber - globalInfo.pendingScenarioNumber - globalInfo.undefinedScenarioNumber;
+
+    return globalInfo
+}
+
+function getStepsByStatus(testCases, status) {
+    return testCases
+                .flatMap(testCase => testCase.steps
+                    .filter(it => it.result.status === status)
+                    .map(it => {
+                        const scenario = testCase.pickle.scenario
+                        return ({
+                            file: scenario.uri,
+                            line: it.pickleStep ? it.pickleStep.location.line : scenario.location.line,
+                            title: testCase.pickle.name,
+                            step: it.pickleStep ? it.pickleStep.name : getHookName(it.hook),
+                            error: it.result.message
+                        })
                     })
-                })
+                )
+}
+
+function getHookName(hook) {
+    if (hook?.name) {
+        return hook.name
+    }
+    switch (hook?.type) {
+        case 'BEFORE_TEST_CASE':
+            return 'Before hook'
+        case 'AFTER_TEST_CASE':
+            return 'After hook'
+        default:
+            return 'Hook'
+    }
 }
 
 function getTestCaseStatus(testCase) {

@@ -101,21 +101,12 @@ function globalFileInformation(reportFile) {
     const pendingScenarioNumber = scenario
         .filter(scenario => hasPending(scenario))
         .length;
-    const stepsNumber = reportFile.elements
-        .map(scenario => scenario.steps.length)
-        .reduce((a, b) => a + b, 0);
-    const failedStepsNumber = reportFile.elements
-        .map(scenario => getFailedSteps(scenario).length)
-        .reduce((a, b) => a + b, 0);
-    const skippedStepsNumber = reportFile.elements
-        .map(scenario => getSkippedSteps(scenario).length)
-        .reduce((a, b) => a + b, 0);
-    const undefinedStepsNumber = reportFile.elements
-        .map(scenario => getUndefinedSteps(scenario).length)
-        .reduce((a, b) => a + b, 0);
-    const pendingStepNumber = reportFile.elements
-        .map(scenario => getPendingSteps(scenario).length)
-        .reduce((a, b) => a + b, 0);
+    // hooks are used for the scenario status but are not counted as steps
+    const stepsNumber = countStepsWithoutHooks(reportFile, () => true);
+    const failedStepsNumber = countStepsWithoutHooks(reportFile, step => step.result.status === 'failed');
+    const skippedStepsNumber = countStepsWithoutHooks(reportFile, step => step.result.status === 'skipped');
+    const undefinedStepsNumber = countStepsWithoutHooks(reportFile, step => step.result.status === 'undefined');
+    const pendingStepNumber = countStepsWithoutHooks(reportFile, step => step.result.status === 'pending');
 
     const result =  {
         scenarioNumber: scenario.length,
@@ -134,11 +125,23 @@ function globalFileInformation(reportFile) {
     return result;
 }
 
+// depending on the cucumber version, hooks are in before/after or in steps with the hidden flag
+function isHook(scenario, step) {
+    return step.hidden
+        || (scenario.before || []).includes(step)
+        || (scenario.after || []).includes(step);
+}
+
+function countStepsWithoutHooks(reportFile, predicate) {
+    return reportFile.elements
+        .map(scenario => (scenario.steps || [])
+            .filter(step => !isHook(scenario, step) && predicate(step))
+            .length)
+        .reduce((a, b) => a + b, 0);
+}
+
 function getFailedSteps(scenario) {
     return getStepByStatus(scenario, 'failed');
-}
-function getSkippedSteps(scenario) {
-    return getStepByStatus(scenario, 'skipped');
 }
 function getUndefinedSteps(scenario) {
     return getStepByStatus(scenario, 'undefined');
@@ -195,13 +198,25 @@ function buildPendingData(fileReport, scenario) {
     return buildStepData(fileReport, scenario, getPendingSteps);
 }
 
+function getHookName(scenario, hook) {
+    if (hook.keyword) {
+        return `${hook.keyword.trim()} hook`;
+    } else if ((scenario.before || []).includes(hook)) {
+        return 'Before hook';
+    } else if ((scenario.after || []).includes(hook)) {
+        return 'After hook';
+    }
+    return 'Hook';
+}
+
 function buildStepData(fileReport, scenario, getStepsFunction) {
-    const skippedStep = getStepsFunction(scenario)[0];
+    const step = getStepsFunction(scenario)[0];
+    const stepIsHook = isHook(scenario, step);
     return {
         file: fileReport.uri,
-        line: skippedStep.line,
+        line: stepIsHook ? scenario.line : step.line,
         title: scenario.name,
-        step: skippedStep.name,
-        error: skippedStep.result.error_message
+        step: stepIsHook ? getHookName(scenario, step) : step.name,
+        error: step.result.error_message
     }
 }
