@@ -1,0 +1,51 @@
+[
+  {
+    "description": "",
+    "elements": [
+      {
+        "description": "",
+        "id": "scenario-with-a-failing-before-hook;scenario-failing-in-before-hook",
+        "keyword": "Scenario",
+        "line": 4,
+        "name": "Scenario failing in before hook",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "failed",
+              "duration": 377667,
+              "error_message": "AssertionError [ERR_ASSERTION]: this before hook allways fail\n    at World.<anonymous> (test/fixtures/support/steps.js:18:12)"
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 5,
+            "name": "this step will success",
+            "match": {
+              "location": "test/fixtures/support/steps.js:4"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          }
+        ],
+        "tags": [
+          {
+            "name": "@failing-before-hook",
+            "line": 3
+          }
+        ],
+        "type": "scenario"
+      }
+    ],
+    "id": "scenario-with-a-failing-before-hook",
+    "line": 1,
+    "keyword": "Feature",
+    "name": "Scenario with a failing before hook",
+    "tags": [],
+    "uri": "test/fixtures/features/failing-before-hook.feature"
+  }
+]

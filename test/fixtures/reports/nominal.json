@@ -1,0 +1,238 @@
+[
+  {
+    "description": "",
+    "elements": [
+      {
+        "description": "",
+        "id": "test-with-background;this-scenario-will-fail-because-of-background",
+        "keyword": "Scenario",
+        "line": 6,
+        "name": "This scenario will fail because of background",
+        "steps": [
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 4,
+            "name": "this step will fail",
+            "match": {
+              "location": "cucumber/js/step-definitions/stepdefs.js:4"
+            },
+            "result": {
+              "status": "failed",
+              "duration": 411790,
+              "error_message": "AssertionError [ERR_ASSERTION]: this step allways fail\n    at World.<anonymous> (cucumber/js/step-definitions/stepdefs.js:5:12)"
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 7,
+            "name": "this step will success",
+            "match": {
+              "location": "cucumber/js/step-definitions/stepdefs.js:8"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      }
+    ],
+    "id": "test-with-background",
+    "line": 1,
+    "keyword": "Feature",
+    "name": "Test with background",
+    "tags": [],
+    "uri": "cucumber/js/features/background.feature"
+  },
+  {
+    "description": "",
+    "elements": [
+      {
+        "description": "",
+        "id": "test-file;scenario-ok",
+        "keyword": "Scenario",
+        "line": 5,
+        "name": "Scenario OK",
+        "steps": [
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 6,
+            "name": "this step will success",
+            "match": {
+              "location": "cucumber/js/step-definitions/stepdefs.js:8"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 25957
+            }
+          }
+        ],
+        "tags": [
+          {
+            "name": "@NonFailedTest",
+            "line": 3
+          },
+          {
+            "name": "@SuccessTest",
+            "line": 4
+          }
+        ],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "test-file;scenario-ko",
+        "keyword": "Scenario",
+        "line": 9,
+        "name": "Scenario KO",
+        "steps": [
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 10,
+            "name": "this step will fail",
+            "match": {
+              "location": "cucumber/js/step-definitions/stepdefs.js:4"
+            },
+            "result": {
+              "status": "failed",
+              "duration": 46333,
+              "error_message": "AssertionError [ERR_ASSERTION]: this step allways fail\n    at World.<anonymous> (cucumber/js/step-definitions/stepdefs.js:5:12)"
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "test-file;scenario-with-undefined-step",
+        "keyword": "Scenario",
+        "line": 15,
+        "name": "Scenario with undefined step",
+        "steps": [
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 16,
+            "name": "this step will success",
+            "match": {
+              "location": "cucumber/js/step-definitions/stepdefs.js:8"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 13457
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 17,
+            "name": "this step is undefined",
+            "result": {
+              "status": "undefined",
+              "duration": 0
+            }
+          }
+        ],
+        "tags": [
+          {
+            "name": "@SuccessTest",
+            "line": 12
+          },
+          {
+            "name": "@NonFailedTest",
+            "line": 13
+          },
+          {
+            "name": "@UndefinedStepTest",
+            "line": 14
+          }
+        ],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "test-file;scenario-with-pending-step",
+        "keyword": "Scenario",
+        "line": 20,
+        "name": "Scenario with pending step",
+        "steps": [
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 21,
+            "name": "this step is pending",
+            "match": {
+              "location": "cucumber/js/step-definitions/stepdefs.js:11"
+            },
+            "result": {
+              "status": "pending",
+              "duration": 29749
+            }
+          }
+        ],
+        "tags": [
+          {
+            "name": "@NonFailedTest",
+            "line": 19
+          }
+        ],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "test-file;scenario-with-outline",
+        "keyword": "Scenario Outline",
+        "line": 27,
+        "name": "Scenario with Outline",
+        "steps": [
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 24,
+            "name": "this step will success using example tets",
+            "result": {
+              "status": "undefined",
+              "duration": 0
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "test-file;scenario-with-outline",
+        "keyword": "Scenario Outline",
+        "line": 28,
+        "name": "Scenario with Outline",
+        "steps": [
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 24,
+            "name": "this step will success using example test2",
+            "result": {
+              "status": "undefined",
+              "duration": 0
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      }
+    ],
+    "id": "test-file",
+    "line": 1,
+    "keyword": "Feature",
+    "name": "Test file",
+    "tags": [],
+    "uri": "cucumber/js/features/test.feature"
+  }
+]

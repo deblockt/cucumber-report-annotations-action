@@ -1,0 +1,52 @@
+[
+  {
+    "description": "",
+    "elements": [
+      {
+        "description": "",
+        "id": "scenario-with-a-failing-step-and-a-failing-after-hook;scenario-failing-in-step-and-after-hook",
+        "keyword": "Scenario",
+        "line": 4,
+        "name": "Scenario failing in step and after hook",
+        "steps": [
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 5,
+            "name": "this step will fail",
+            "match": {
+              "location": "test/fixtures/support/steps.js:7"
+            },
+            "result": {
+              "status": "failed",
+              "duration": 419042,
+              "error_message": "AssertionError [ERR_ASSERTION]: this step allways fail\n    at World.<anonymous> (test/fixtures/support/steps.js:8:12)"
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "failed",
+              "duration": 53917,
+              "error_message": "AssertionError [ERR_ASSERTION]: this after hook allways fail\n    at World.<anonymous> (test/fixtures/support/steps.js:22:12)"
+            }
+          }
+        ],
+        "tags": [
+          {
+            "name": "@failing-after-hook",
+            "line": 3
+          }
+        ],
+        "type": "scenario"
+      }
+    ],
+    "id": "scenario-with-a-failing-step-and-a-failing-after-hook",
+    "line": 1,
+    "keyword": "Feature",
+    "name": "Scenario with a failing step and a failing after hook",
+    "tags": [],
+    "uri": "test/fixtures/features/failing-step-and-hook.feature"
+  }
+]

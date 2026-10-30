@@ -1,0 +1,37 @@
+[
+  {
+    "description": "",
+    "elements": [
+      {
+        "description": "",
+        "id": "feature-with-rule;a-business-rule;scenario-inside-a-rule",
+        "keyword": "Scenario",
+        "line": 5,
+        "name": "Scenario inside a rule",
+        "steps": [
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 6,
+            "name": "this step will success",
+            "match": {
+              "location": "test/fixtures/support/steps.js:4"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 205000
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      }
+    ],
+    "id": "feature-with-rule",
+    "line": 1,
+    "keyword": "Feature",
+    "name": "Feature with rule",
+    "tags": [],
+    "uri": "test/fixtures/features/rule.feature"
+  }
+]

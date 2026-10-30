@@ -1,0 +1,44 @@
+[
+  {
+    "description": "",
+    "elements": [
+      {
+        "description": "",
+        "id": "scenario-with-several-undefined-steps;scenario-with-two-undefined-steps",
+        "keyword": "Scenario",
+        "line": 3,
+        "name": "Scenario with two undefined steps",
+        "steps": [
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 4,
+            "name": "this step is undefined",
+            "result": {
+              "status": "undefined",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 5,
+            "name": "this other step is undefined too",
+            "result": {
+              "status": "undefined",
+              "duration": 0
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      }
+    ],
+    "id": "scenario-with-several-undefined-steps",
+    "line": 1,
+    "keyword": "Feature",
+    "name": "Scenario with several undefined steps",
+    "tags": [],
+    "uri": "test/fixtures/features/undefined-steps.feature"
+  }
+]
