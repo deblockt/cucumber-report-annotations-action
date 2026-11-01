@@ -60722,8 +60722,8 @@ function setOutputs(core, reportFile, counts) {
         core.setOutput(`${outputName}_${type}_scenarios`, counts.scenarios[type]);
     }
     for (const type in counts.steps) {
-        core.debug(`publish output ${outputName}_${type}_steps=${counts.scenarios[type]}`);
-        core.setOutput(`${outputName}_${type}_steps`, counts.scenarios[type]);
+        core.debug(`publish output ${outputName}_${type}_steps=${counts.steps[type]}`);
+        core.setOutput(`${outputName}_${type}_steps`, counts.steps[type]);
     }
 }
 

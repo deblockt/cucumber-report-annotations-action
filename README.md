@@ -49,5 +49,6 @@ The following variables are available as output (with the report file name used 
 - `${output}_passed_scenarios`: Number of passed scenarios.
 - `${output}_failed_steps`: Number of failed steps.
 - `${output}_undefined_steps`: Number of undefined steps.
+- `${output}_skipped_steps`: Number of skipped steps.
 - `${output}_pending_steps`: Number of pending steps.
 - `${output}_passed_steps`: Number of passed steps.
