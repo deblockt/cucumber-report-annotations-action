@@ -1,10 +1,10 @@
 const reportReaderJson = require('./reportReader-json');
 const reportReaderNdJson = require('./reportReader-ndjson');
 const { createFileMatcher } = require('./fileMatcher');
-const { buildStepAnnotations, buildReportDetailAnnotations } = require('./annotations');
+const { buildAnnotations } = require('./annotations');
 const { setOutputs } = require('./outputs');
 const { buildSummaryCounts, buildSummary } = require('./summary');
-const { buildCheckRequest, shouldFailJob } = require('./check');
+const { buildCheckRequests, shouldFailJob } = require('./check');
 
 function readInputs(core) {
     return {
@@ -20,7 +20,8 @@ function readInputs(core) {
         showNumberOfErrorOnCheckTitle: core.getInput('show-number-of-error-on-check-title'),
         numberOfTestErrorToFailJob: core.getInput('number-of-test-error-to-fail-job'),
         showGlobalSummaryReport: core.getInput('show-global-summary-report'),
-        ignoreNoReportFound: core.getInput('ignore-no-report-found')
+        ignoreNoReportFound: core.getInput('ignore-no-report-found'),
+        maxNumberOfAnnotations: Number(core.getInput('max-number-of-annotations'))
     };
 }
 
@@ -42,6 +43,7 @@ async function run({ core, github, glob, fs, workspace = process.cwd() }) {
         return;
     }
     const octokit = github.getOctokit(inputs.accessToken);
+    let remainingAnnotations = inputs.maxNumberOfAnnotations;
     for await (const cucumberReportFile of reportFiles) {
         core.info("found cucumber report " + cucumberReportFile);
 
@@ -51,18 +53,18 @@ async function run({ core, github, glob, fs, workspace = process.cwd() }) {
         const counts = buildSummaryCounts(globalInformation);
         setOutputs(core, cucumberReportFile, counts);
 
-        const summary = buildSummary(globalInformation, counts);
-        const errorAnnotations = await buildStepAnnotations(reportResult, inputs, resolvePath);
+        const { annotations, errorNumber, notSentNumber } = await buildAnnotations(reportResult, inputs, remainingAnnotations, resolvePath);
+        remainingAnnotations -= annotations.length;
 
-        // TODO make an update request if there are more than 50 annotations
-        const createCheckRequest = buildCheckRequest({
+        const summary = buildSummary(globalInformation, counts, notSentNumber, inputs.maxNumberOfAnnotations);
+        const checkRequests = buildCheckRequests({
             context: github.context,
             inputs,
             globalInformation,
             summary,
-            annotations: errorAnnotations.slice(0, 49)
+            annotations
         });
-        const checkTitle = createCheckRequest.output.title;
+        const checkTitle = checkRequests.create.output.title;
 
         core.info('Creating summary:\n' + summary);
         await core.summary
@@ -71,25 +73,13 @@ async function run({ core, github, glob, fs, workspace = process.cwd() }) {
           .write()
 
         core.info('Sending cucumber annotations');
-        const checksReponse = await octokit.rest.checks.create(createCheckRequest);
-
-        if (shouldFailJob(errorAnnotations.length, inputs)) {
-            core.setFailed(`${errorAnnotations.length} test(s) in error`);
+        const checksReponse = await octokit.rest.checks.create(checkRequests.create);
+        for (const updateRequest of checkRequests.updates) {
+            await octokit.rest.checks.update({ ...updateRequest, check_run_id: checksReponse.data.id });
         }
 
-        if (inputs.showGlobalSummaryReport === 'true') {
-            core.info('Building all scenario summary')
-            const allAnnotations = await buildReportDetailAnnotations(reportResult, resolvePath);
-            core.info('Send core scenario summary')
-            await octokit.rest.checks.update({
-                ...github.context.repo,
-                check_run_id: checksReponse.data.id,
-                output: {
-                    title: checkTitle,
-                    summary,
-                    annotations: allAnnotations
-                }
-            });
+        if (shouldFailJob(errorNumber, inputs)) {
+            core.setFailed(`${errorNumber} test(s) in error`);
         }
     }
 }

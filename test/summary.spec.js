@@ -38,5 +38,10 @@ describe('summary', () => {
             const summary = buildSummary(information, buildSummaryCounts(information));
             assert.strictEqual(summary.split('\n')[0], '    1 Scenarios (1 passed)');
         });
+
+        it('should indicate the number of annotations not sent', () => {
+            const summary = buildSummary(globalInformation, buildSummaryCounts(globalInformation), 10, 50);
+            assert.match(summary, /\)\n\n10 annotation\(s\) not sent: the maximum number of annotations \(50\) is reached\.$/);
+        });
     });
 });

@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { buildCheckTitle, computeCheckStatus, buildCheckRequest, shouldFailJob } = require('../src/check');
+const { buildCheckTitle, computeCheckStatus, buildCheckRequests, shouldFailJob } = require('../src/check');
 
 const statusInputs = {
     checkStatusOnError: 'failure',
@@ -59,42 +59,59 @@ describe('check', () => {
         });
     });
 
-    describe('buildCheckRequest', () => {
+    describe('buildCheckRequests', () => {
         const context = { repo: { owner: 'owner', repo: 'my-repo' }, sha: 'commit-sha', payload: {} };
         const inputs = { ...statusInputs, checkName: 'Cucumber', showNumberOfErrorOnCheckTitle: 'true' };
 
-        it('should build a completed check', () => {
-            const request = buildCheckRequest({
+        function requests(overrides) {
+            return buildCheckRequests({
                 context,
                 inputs,
                 globalInformation: information({ failedScenarioNumber: 1 }),
                 summary: 'the summary',
-                annotations: ['annotation']
+                annotations: [],
+                ...overrides
             });
-            assert.deepStrictEqual(request, {
-                owner: 'owner',
-                repo: 'my-repo',
-                name: 'Cucumber',
-                head_sha: 'commit-sha',
-                status: 'completed',
-                conclusion: 'failure',
-                output: {
-                    title: 'Cucumber (1 error)',
-                    summary: 'the summary',
-                    annotations: ['annotation']
-                }
+        }
+
+        it('should create a completed check', () => {
+            assert.deepStrictEqual(requests({ annotations: ['annotation'] }), {
+                create: {
+                    owner: 'owner',
+                    repo: 'my-repo',
+                    name: 'Cucumber',
+                    head_sha: 'commit-sha',
+                    status: 'completed',
+                    conclusion: 'failure',
+                    output: {
+                        title: 'Cucumber (1 error)',
+                        summary: 'the summary',
+                        annotations: ['annotation']
+                    }
+                },
+                updates: []
             });
         });
 
         it('should use the head commit of the pull request', () => {
-            const request = buildCheckRequest({
-                context: { ...context, payload: { pull_request: { head: { sha: 'pr-head-sha' } } } },
-                inputs,
-                globalInformation: information(),
-                summary: '',
-                annotations: []
+            const { create } = requests({ context: { ...context, payload: { pull_request: { head: { sha: 'pr-head-sha' } } } } });
+            assert.strictEqual(create.head_sha, 'pr-head-sha');
+        });
+
+        it('should send the annotations by batch of 50', () => {
+            const { create, updates } = requests({ annotations: Array.from({ length: 120 }, (_, index) => index) });
+            assert.strictEqual(create.output.annotations.length, 50);
+            assert.deepStrictEqual(updates.map(update => update.output.annotations.length), [50, 20]);
+            assert.deepStrictEqual([...create.output.annotations, ...updates.flatMap(update => update.output.annotations)], Array.from({ length: 120 }, (_, index) => index));
+        });
+
+        it('should send the title and summary with each update', () => {
+            const { updates } = requests({ annotations: Array.from({ length: 60 }, (_, index) => index) });
+            assert.deepStrictEqual({ ...updates[0], output: { ...updates[0].output, annotations: [] } }, {
+                owner: 'owner',
+                repo: 'my-repo',
+                output: { title: 'Cucumber (1 error)', summary: 'the summary', annotations: [] }
             });
-            assert.strictEqual(request.head_sha, 'pr-head-sha');
         });
     });
 

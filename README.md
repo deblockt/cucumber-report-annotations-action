@@ -38,6 +38,7 @@ All parameters in this action are optional, allowing flexibility in configuratio
 | **show-number-of-error-on-check-title** | Show the number of errors in the check title (visible in PR checks).                    | `true`                    | `true`, `false`                 |
 | **show-global-summary-report**          | Display a full summary report for each feature file.                                    | `false`                   | `true`, `false`                 |
 | **number-of-test-error-to-fail-job**    | Number of test errors required to fail the build. Undefined and pending steps count as errors when an annotation is created for them (`annotation-status-on-undefined`, `annotation-status-on-pending`). <br> `-1` prevents the build from failing. | `-1`                      |                                 |
+| **max-number-of-annotations**          | Maximum number of annotations sent by the action, for all the reports. Annotations of failed, undefined and pending steps are sent first, then the ones of the global summary report. The number of annotations not sent is shown in the check summary. | `50`                      |                                 |
 
 ## Outputs
 
