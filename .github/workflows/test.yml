@@ -159,35 +159,57 @@ jobs:
     permissions:
       checks: write
     steps:
-      - name: "check conclusions and neutralize expected failures"
+      - name: "check conclusions and summaries, then neutralize expected failures"
         uses: actions/github-script@v7
         with:
           script: |
             const ref = context.payload.pull_request?.head.sha ?? context.sha;
-            const expected = { 'Successful cucumber report direct from repository': 'success' };
+            const summaries = {
+              committed: ['1 Scenarios (1 passed)', '1 Steps (1 passed)'],
+              full: ['7 Scenarios (2 failed, 3 undefined, 1 pending, 1 passed)', '9 Steps (2 failed, 3 undefined, 1 skipped, 1 pending, 2 passed)'],
+              nonFailed: ['3 Scenarios (1 undefined, 1 pending, 1 passed)', '4 Steps (1 undefined, 1 pending, 2 passed)'],
+              ok: ['2 Scenarios (1 undefined, 1 passed)', '3 Steps (1 undefined, 2 passed)'],
+              empty: ['0 Scenarios ()', '0 Steps ()'],
+            };
+            const expected = {
+              'Successful cucumber report direct from repository': { conclusion: 'success', summary: summaries.committed },
+            };
             for (const ext of ['json', 'ndjson']) {
               Object.assign(expected, {
-                [`${ext}: failed cucumber report`]: 'failure',
-                [`${ext}:  failed (no number of error)`]: 'failure',
-                [`${ext}: failed with all annotation`]: 'failure',
-                [`${ext}: failed because of undefined test`]: 'failure',
-                [`${ext}: failed because of pending test`]: 'failure',
-                [`${ext}: neutral cucumber report`]: 'neutral',
-                [`${ext}: success cucumber report`]: 'success',
-                [`${ext}: success empty report`]: 'success',
-                [`${ext}: job with summary`]: 'failure',
-                [`${ext}: job with summary and tag filter`]: 'success',
-                [`${ext}: fail job due to failed test`]: 'failure',
+                [`${ext}: failed cucumber report`]: { conclusion: 'failure', summary: summaries.full },
+                [`${ext}:  failed (no number of error)`]: { conclusion: 'failure', summary: summaries.full },
+                [`${ext}: failed with all annotation`]: { conclusion: 'failure', summary: summaries.full },
+                [`${ext}: failed because of undefined test`]: { conclusion: 'failure', summary: summaries.nonFailed },
+                [`${ext}: failed because of pending test`]: { conclusion: 'failure', summary: summaries.nonFailed },
+                [`${ext}: neutral cucumber report`]: { conclusion: 'neutral', summary: summaries.full },
+                [`${ext}: success cucumber report`]: { conclusion: 'success', summary: summaries.ok },
+                [`${ext}: success empty report`]: { conclusion: 'success', summary: summaries.empty },
+                [`${ext}: job with summary`]: { conclusion: 'failure', summary: summaries.full },
+                [`${ext}: job with summary and tag filter`]: { conclusion: 'success', summary: summaries.ok },
+                [`${ext}: fail job due to failed test`]: { conclusion: 'failure', summary: summaries.nonFailed },
               });
             }
             const errors = [];
-            for (const [name, conclusion] of Object.entries(expected)) {
+            const toNeutralize = [];
+            for (const [name, { conclusion, summary }] of Object.entries(expected)) {
               const { data } = await github.rest.checks.listForRef({ ...context.repo, ref, check_name: name, filter: 'latest' });
               const run = data.check_runs[0];
               if (!run) { errors.push(`${name}: check not found`); continue; }
-              if (run.conclusion !== conclusion) { errors.push(`${name}: expected ${conclusion}, got ${run.conclusion}`); continue; }
-              if (conclusion === 'failure') {
-                await github.rest.checks.update({ ...context.repo, check_run_id: run.id, conclusion: 'neutral' });
+              if (run.conclusion !== conclusion) {
+                errors.push(`${name}: expected conclusion ${conclusion}, got ${run.conclusion}`);
+              }
+              const actualSummary = (run.output.summary ?? '').split('\n').map(line => line.trim()).join('\n');
+              if (actualSummary !== summary.join('\n')) {
+                errors.push(`${name}: expected summary\n${summary.join('\n')}\ngot\n${actualSummary}`);
+              }
+              if (run.conclusion === 'failure' && conclusion === 'failure') {
+                toNeutralize.push(run.id);
               }
             }
-            if (errors.length) core.setFailed(errors.join('\n'));
+            if (errors.length) {
+              core.setFailed(errors.join('\n\n'));
+              return;
+            }
+            for (const checkRunId of toNeutralize) {
+              await github.rest.checks.update({ ...context.repo, check_run_id: checkRunId, conclusion: 'neutral' });
+            }
