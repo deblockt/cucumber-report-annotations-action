@@ -37,7 +37,11 @@ Both readers expose the same interface (`globalInformation`, `failedSteps`, `und
 npm test
 ```
 
-The tests are in `test/reportReader.spec.js`. Every spec runs against both readers, with the same expected values: the JSON and NDJSON reports of a fixture describe the same run, so both readers must return the same result.
+There is one spec file per module in `test/`:
+
+- `test/reportReader.spec.js` runs every spec against both readers, with the same expected values: the JSON and NDJSON reports of a fixture describe the same run, so both readers must return the same result.
+- `test/main.spec.js` runs the whole action with fakes of `@actions/core`, `@actions/github`, `@actions/glob` and `fs` (see `test/fakes.js`), and checks the check requests sent to GitHub, the outputs and the job status.
+- The other spec files test the pure functions of `src/`.
 
 ### Test fixtures
 
