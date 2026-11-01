@@ -1,12 +1,19 @@
-const reportReaderJson = require('./reportReader-json');
-const reportReaderNdJson = require('./reportReader-ndjson');
-const { createFileMatcher } = require('./fileMatcher');
-const { buildAnnotations } = require('./annotations');
-const { setOutputs } = require('./outputs');
-const { buildSummaryCounts, buildSummary } = require('./summary');
-const { buildCheckRequests, shouldFailJob } = require('./check');
+import * as reportReaderJson from './reportReader-json';
+import * as reportReaderNdJson from './reportReader-ndjson';
+import { createFileMatcher } from './fileMatcher';
+import { buildAnnotations } from './annotations';
+import { setOutputs } from './outputs';
+import { buildSummaryCounts, buildSummary } from './summary';
+import { buildCheckRequests, shouldFailJob } from './check';
+import type { Core, Dependencies, Inputs, Octokit, PathResolver, ReportReader } from './types';
 
-function readInputs(core) {
+interface PublishDependencies extends Pick<Dependencies, 'core' | 'github' | 'fs'> {
+    octokit: Octokit;
+    inputs: Inputs;
+    resolvePath: PathResolver;
+}
+
+function readInputs(core: Core): Inputs {
     return {
         inputPath: core.getInput('path'),
         checkName: core.getInput('name'),
@@ -25,9 +32,10 @@ function readInputs(core) {
     };
 }
 
-async function publishReportFile({ core, github, fs, octokit, inputs, resolvePath }, cucumberReportFile, remainingAnnotations) {
+async function publishReportFile({ core, github, fs, octokit, inputs, resolvePath }: PublishDependencies, cucumberReportFile: string, remainingAnnotations: number): Promise<number> {
     const reportResultString = await fs.promises.readFile(cucumberReportFile);
-    const reportResult = (cucumberReportFile.endsWith('.json') ? reportReaderJson : reportReaderNdJson).reader(reportResultString);
+    const reportReader: ReportReader = cucumberReportFile.endsWith('.json') ? reportReaderJson : reportReaderNdJson;
+    const reportResult = reportReader.reader(reportResultString);
     const globalInformation = reportResult.globalInformation;
     const counts = buildSummaryCounts(globalInformation);
     setOutputs(core, cucumberReportFile, counts);
@@ -62,7 +70,11 @@ async function publishReportFile({ core, github, fs, octokit, inputs, resolvePat
     return annotations.length;
 }
 
-async function publishReports({ core, github, glob, fs, workspace = process.cwd() }) {
+function errorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
+}
+
+async function publishReports({ core, github, glob, fs, workspace = process.cwd() }: Dependencies): Promise<void> {
     const inputs = readInputs(core);
     const resolvePath = createFileMatcher({ core, glob, workspace });
     const globber = await glob.create(inputs.inputPath, {
@@ -81,24 +93,27 @@ async function publishReports({ core, github, glob, fs, workspace = process.cwd(
     }
     const dependencies = { core, github, fs, octokit: github.getOctokit(inputs.accessToken), inputs, resolvePath };
     let remainingAnnotations = inputs.maxNumberOfAnnotations;
-    for await (const cucumberReportFile of reportFiles) {
+    for (const cucumberReportFile of reportFiles) {
         core.info("found cucumber report " + cucumberReportFile);
         try {
             const sentAnnotationNumber = await publishReportFile(dependencies, cucumberReportFile, remainingAnnotations);
             remainingAnnotations -= sentAnnotationNumber;
         } catch (error) {
-            throw new Error(`Unable to publish the cucumber report ${cucumberReportFile}: ${error.message}`, { cause: error });
+            throw new Error(`Unable to publish the cucumber report ${cucumberReportFile}: ${errorMessage(error)}`, { cause: error });
         }
     }
 }
 
-async function run(dependencies) {
+function errorStack(error: unknown): string {
+    const cause = error instanceof Error ? error.cause ?? error : error;
+    return cause instanceof Error && cause.stack ? cause.stack : String(cause);
+}
+
+export async function run(dependencies: Dependencies): Promise<void> {
     try {
         await publishReports(dependencies);
     } catch (error) {
-        dependencies.core.debug(error.cause ? error.cause.stack : error.stack);
-        dependencies.core.setFailed(error.message);
+        dependencies.core.debug(errorStack(error));
+        dependencies.core.setFailed(errorMessage(error));
     }
 }
-
-module.exports = { run };

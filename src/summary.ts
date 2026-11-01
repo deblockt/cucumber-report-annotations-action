@@ -1,4 +1,6 @@
-function buildSummaryCounts(globalInformation) {
+import type { GlobalInformation, SummaryCounts } from './types';
+
+export function buildSummaryCounts(globalInformation: GlobalInformation): SummaryCounts {
     return {
         scenarios: {
             'failed': globalInformation.failedScenarioNumber,
@@ -16,7 +18,7 @@ function buildSummaryCounts(globalInformation) {
     };
 }
 
-function buildSummaryLine(itemNumber, itemType, itemCounts) {
+function buildSummaryLine(itemNumber: number, itemType: string, itemCounts: Record<string, number>): string {
     const header = itemNumber + ' ' + itemType;
     const counts = Object.keys(itemCounts)
         .filter(key => itemCounts[key] > 0)
@@ -25,20 +27,15 @@ function buildSummaryLine(itemNumber, itemType, itemCounts) {
     return `    ${header} (${counts})`;
 }
 
-function buildNotSentAnnotationsMessage(notSentNumber, maxNumberOfAnnotations) {
+function buildNotSentAnnotationsMessage(notSentNumber: number, maxNumberOfAnnotations?: number): string {
     return notSentNumber > 0
         ? `\n\n${notSentNumber} annotation(s) not sent: the maximum number of annotations (${maxNumberOfAnnotations}) is reached.`
         : '';
 }
 
-function buildSummary(globalInformation, counts, notSentAnnotationNumber = 0, maxNumberOfAnnotations) {
+export function buildSummary(globalInformation: GlobalInformation, counts: SummaryCounts, notSentAnnotationNumber = 0, maxNumberOfAnnotations?: number): string {
     return buildSummaryLine(globalInformation.scenarioNumber, 'Scenarios', counts.scenarios)
         + '\n'
         + buildSummaryLine(globalInformation.stepsNumber, 'Steps', counts.steps)
         + buildNotSentAnnotationsMessage(notSentAnnotationNumber, maxNumberOfAnnotations);
 }
-
-module.exports = {
-    buildSummaryCounts,
-    buildSummary
-};

@@ -1,5 +1,8 @@
-const assert = require('assert');
-const { buildCheckTitle, computeCheckStatus, buildCheckRequests, shouldFailJob } = require('../src/check');
+import * as assert from 'assert';
+import { buildCheckTitle, computeCheckStatus, buildCheckRequests, shouldFailJob } from '../src/check';
+import type { CheckRequestsParameters, CheckStatusInformation } from '../src/check';
+import type { GitHubContext } from '../src/types';
+import { annotation } from './fakes';
 
 const statusInputs = {
     checkStatusOnError: 'failure',
@@ -7,7 +10,7 @@ const statusInputs = {
     checkStatusOnPending: 'neutral'
 };
 
-function information(overrides) {
+function information(overrides: Partial<CheckStatusInformation> = {}): CheckStatusInformation {
     return { failedScenarioNumber: 0, undefinedStepsNumber: 0, pendingStepNumber: 0, ...overrides };
 }
 
@@ -60,10 +63,10 @@ describe('check', () => {
     });
 
     describe('buildCheckRequests', () => {
-        const context = { repo: { owner: 'owner', repo: 'my-repo' }, sha: 'commit-sha', payload: {} };
+        const context: GitHubContext = { repo: { owner: 'owner', repo: 'my-repo' }, sha: 'commit-sha', payload: {} };
         const inputs = { ...statusInputs, checkName: 'Cucumber', showNumberOfErrorOnCheckTitle: true };
 
-        function requests(overrides) {
+        function requests(overrides: Partial<CheckRequestsParameters> = {}) {
             return buildCheckRequests({
                 context,
                 inputs,
@@ -75,7 +78,7 @@ describe('check', () => {
         }
 
         it('should create a completed check', () => {
-            assert.deepStrictEqual(requests({ annotations: ['annotation'] }), {
+            assert.deepStrictEqual(requests({ annotations: [annotation('annotation')] }), {
                 create: {
                     owner: 'owner',
                     repo: 'my-repo',
@@ -86,7 +89,7 @@ describe('check', () => {
                     output: {
                         title: 'Cucumber (1 error)',
                         summary: 'the summary',
-                        annotations: ['annotation']
+                        annotations: [annotation('annotation')]
                     }
                 },
                 updates: []
@@ -99,14 +102,14 @@ describe('check', () => {
         });
 
         it('should send the annotations by batch of 50', () => {
-            const { create, updates } = requests({ annotations: Array.from({ length: 120 }, (_, index) => index) });
+            const { create, updates } = requests({ annotations: Array.from({ length: 120 }, (_, index) => annotation(String(index))) });
             assert.strictEqual(create.output.annotations.length, 50);
             assert.deepStrictEqual(updates.map(update => update.output.annotations.length), [50, 20]);
-            assert.deepStrictEqual([...create.output.annotations, ...updates.flatMap(update => update.output.annotations)], Array.from({ length: 120 }, (_, index) => index));
+            assert.deepStrictEqual([...create.output.annotations, ...updates.flatMap(update => update.output.annotations)], Array.from({ length: 120 }, (_, index) => annotation(String(index))));
         });
 
         it('should send the title and summary with each update', () => {
-            const { updates } = requests({ annotations: Array.from({ length: 60 }, (_, index) => index) });
+            const { updates } = requests({ annotations: Array.from({ length: 60 }, (_, index) => annotation(String(index))) });
             assert.deepStrictEqual({ ...updates[0], output: { ...updates[0].output, annotations: [] } }, {
                 owner: 'owner',
                 repo: 'my-repo',

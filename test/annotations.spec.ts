@@ -1,7 +1,21 @@
-const assert = require('assert');
-const { buildAnnotations } = require('../src/annotations');
+import * as assert from 'assert';
+import { buildAnnotations } from '../src/annotations';
+import type { Annotation, PathResolver, ReportResult } from '../src/types';
 
-const reportResult = {
+const reportResult: ReportResult = {
+    globalInformation: {
+        scenarioNumber: 4,
+        failedScenarioNumber: 1,
+        pendingScenarioNumber: 1,
+        undefinedScenarioNumber: 1,
+        stepsNumber: 3,
+        succeedScenarioNumber: 1,
+        failedStepsNumber: 1,
+        skippedStepsNumber: 0,
+        undefinedStepsNumber: 1,
+        succeedStepsNumber: 0,
+        pendingStepNumber: 1
+    },
     failedSteps: [{ file: 'a.feature', line: 3, title: 'Scenario KO', step: 'a failing step', error: 'boom' }],
     undefinedSteps: [{ file: 'a.feature', line: 7, title: 'Scenario undefined', step: 'an undefined step' }],
     pendingSteps: [{ file: 'b.feature', line: 2, title: 'Scenario pending', step: 'a pending step' }],
@@ -17,6 +31,14 @@ const reportResult = {
     }]
 };
 
+// only the failed steps are annotated
+const failedInputs = {
+    annotationStatusOnError: 'failure',
+    annotationStatusOnUndefined: '',
+    annotationStatusOnPending: '',
+    showGlobalSummaryReport: false
+};
+
 const allAnnotationsInputs = {
     annotationStatusOnError: 'failure',
     annotationStatusOnUndefined: 'warning',
@@ -24,16 +46,16 @@ const allAnnotationsInputs = {
     showGlobalSummaryReport: true
 };
 
-const resolvePath = async file => 'features/' + file;
+const resolvePath: PathResolver = async file => 'features/' + file;
 
-function titles(annotations) {
+function titles(annotations: Annotation[]): string[] {
     return annotations.map(annotation => annotation.title);
 }
 
 describe('annotations', () => {
     describe('buildAnnotations', () => {
         it('should annotate the failed steps', async () => {
-            const { annotations } = await buildAnnotations(reportResult, { annotationStatusOnError: 'failure' }, 50, resolvePath);
+            const { annotations } = await buildAnnotations(reportResult, failedInputs, 50, resolvePath);
             assert.deepStrictEqual(annotations, [{
                 path: 'features/a.feature',
                 start_line: 3,
@@ -59,19 +81,19 @@ describe('annotations', () => {
         });
 
         it('should keep the report path when the file is not found', async () => {
-            const { annotations } = await buildAnnotations(reportResult, { annotationStatusOnError: 'failure' }, 50, async () => undefined);
+            const { annotations } = await buildAnnotations(reportResult, failedInputs, 50, async () => undefined);
             assert.strictEqual(annotations[0].path, 'a.feature');
         });
 
         it('should use the line 0 when the step has no line', async () => {
             const report = { ...reportResult, failedSteps: [{ ...reportResult.failedSteps[0], line: undefined }] };
-            const { annotations } = await buildAnnotations(report, { annotationStatusOnError: 'failure' }, 50, resolvePath);
+            const { annotations } = await buildAnnotations(report, failedInputs, 50, resolvePath);
             assert.strictEqual(annotations[0].start_line, 0);
             assert.strictEqual(annotations[0].end_line, 0);
         });
 
         it('should list the scenarios of each feature after the steps for the global summary report', async () => {
-            const { annotations } = await buildAnnotations(reportResult, { annotationStatusOnError: 'failure', showGlobalSummaryReport: true }, 50, resolvePath);
+            const { annotations } = await buildAnnotations(reportResult, { ...failedInputs, showGlobalSummaryReport: true }, 50, resolvePath);
             assert.deepStrictEqual(annotations[1], {
                 path: 'features/a.feature',
                 start_line: 0,
@@ -103,8 +125,8 @@ describe('annotations', () => {
             });
 
             it('should not resolve the path of the annotations not sent', async () => {
-                const resolvedFiles = [];
-                await buildAnnotations(reportResult, allAnnotationsInputs, 1, async file => resolvedFiles.push(file) && file);
+                const resolvedFiles: string[] = [];
+                await buildAnnotations(reportResult, allAnnotationsInputs, 1, async file => { resolvedFiles.push(file); return file; });
                 assert.deepStrictEqual(resolvedFiles, ['a.feature']);
             });
         });

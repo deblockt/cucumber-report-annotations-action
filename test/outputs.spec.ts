@@ -1,13 +1,13 @@
-const assert = require('assert');
-const { setOutputs } = require('../src/outputs');
-const { fakeCore } = require('./fakes');
+import * as assert from 'assert';
+import { setOutputs } from '../src/outputs';
+import { fakeCore } from './fakes';
 
 const counts = {
     scenarios: { failed: 2, undefined: 3, pending: 1, passed: 1 },
     steps: { failed: 4, undefined: 5, skipped: 6, pending: 7, passed: 8 }
 };
 
-function outputNames(reportName) {
+function outputNames(reportName: string): string[] {
     return [
         ...['failed', 'undefined', 'pending', 'passed'].map(type => `${reportName}_${type}_scenarios`),
         ...['failed', 'undefined', 'skipped', 'pending', 'passed'].map(type => `${reportName}_${type}_steps`)

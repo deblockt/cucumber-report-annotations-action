@@ -1,19 +1,35 @@
-const EMPTY_GLOBAL_INFO = {
-    scenarioNumber: 0,
-    failedScenarioNumber: 0,
-    pendingScenarioNumber: 0,
-    undefinedScenarioNumber: 0,
-    stepsNumber: 0,
-    succeedScenarioNumber: 0,
-    failedStepsNumber: 0,
-    skippedStepsNumber: 0,
-    undefinedStepsNumber: 0,
-    succeedStepsNumber: 0,
-    pendingStepNumber: 0
+import { EMPTY_GLOBAL_INFO } from './types';
+import type { FileReport, GlobalInformation, ReportResult, ScenarioStatus, StepData } from './types';
+
+// subset of the cucumber json report format read by the action
+interface JsonStep {
+    name?: string;
+    line?: number;
+    keyword?: string;
+    hidden?: boolean;
+    result: {
+        status: string;
+        error_message?: string;
+    };
 }
 
-module.exports.reader = (reportString) => {
-    const report = JSON.parse(reportString)
+interface JsonElement {
+    name: string;
+    line: number;
+    type: string;
+    before?: JsonStep[];
+    after?: JsonStep[];
+    steps?: JsonStep[];
+}
+
+interface JsonFeature {
+    uri: string;
+    name: string;
+    elements: JsonElement[];
+}
+
+export function reader(reportString: string | Buffer): ReportResult {
+    const report: JsonFeature[] = JSON.parse(reportString.toString())
     return {
         get listAllScenarioByFile() {
             return report
@@ -25,42 +41,36 @@ module.exports.reader = (reportString) => {
                 .reduce((a, b) => sum(a, b), EMPTY_GLOBAL_INFO);
         },
         get failedSteps() {
-            return report
-                .map(fileReport => fileFailureStepData(fileReport))
-                .reduce((a, b) => a.concat(b), []);
+            return report.flatMap(fileFailureStepData);
         },
         get undefinedSteps() {
-            return report
-                .map(fileReport => fileUndefinedStepsData(fileReport))
-                .reduce((a, b) => a.concat(b), []);
+            return report.flatMap(fileUndefinedStepsData);
         },
         get pendingSteps() {
-            return report
-                .map(fileReport => filePendingStepsData(fileReport))
-                .reduce((a, b) => a.concat(b), []);
+            return report.flatMap(filePendingStepsData);
         }
     }
 }
 
-function fileFailureStepData(fileReport) {
+function fileFailureStepData(fileReport: JsonFeature): StepData[] {
     return fileReport.elements
         .filter(scenario => hasFailed(scenario))
         .map(failedScenario => buildFailData(fileReport, failedScenario));
 }
 
-function fileUndefinedStepsData(fileReport) {
+function fileUndefinedStepsData(fileReport: JsonFeature): StepData[] {
     return fileReport.elements
         .filter(scenario => hasUndefined(scenario))
         .map(undefinedScenario => buildUndefinedData(fileReport, undefinedScenario));
 }
 
-function filePendingStepsData(fileReport) {
+function filePendingStepsData(fileReport: JsonFeature): StepData[] {
     return fileReport.elements
         .filter(scenario => hasPending(scenario))
         .map(pendingScenario => buildPendingData(fileReport, pendingScenario));
 }
 
-function fileAllScenario(fileReport) {
+function fileAllScenario(fileReport: JsonFeature): FileReport {
     return {
         file: fileReport.uri,
         name: fileReport.name,
@@ -72,7 +82,7 @@ function fileAllScenario(fileReport) {
     }
 }
 
-function sum(info1, info2) {
+function sum(info1: GlobalInformation, info2: GlobalInformation): GlobalInformation {
     return {
         scenarioNumber: info1.scenarioNumber + info2.scenarioNumber,
         failedScenarioNumber: info1.failedScenarioNumber + info2.failedScenarioNumber,
@@ -88,7 +98,7 @@ function sum(info1, info2) {
     }
 }
 
-function globalFileInformation(reportFile) {
+function globalFileInformation(reportFile: JsonFeature): GlobalInformation {
     const scenario = reportFile.elements
         .filter(element => element.type === 'scenario');
 
@@ -108,7 +118,7 @@ function globalFileInformation(reportFile) {
     const undefinedStepsNumber = countStepsWithoutHooks(reportFile, step => step.result.status === 'undefined');
     const pendingStepNumber = countStepsWithoutHooks(reportFile, step => step.result.status === 'pending');
 
-    const result =  {
+    const result: GlobalInformation = {
         scenarioNumber: scenario.length,
         failedScenarioNumber: failedScenarioNumber,
         undefinedScenarioNumber: undefinedScenarioNumber,
@@ -126,13 +136,13 @@ function globalFileInformation(reportFile) {
 }
 
 // depending on the cucumber version, hooks are in before/after or in steps with the hidden flag
-function isHook(scenario, step) {
-    return step.hidden
+function isHook(scenario: JsonElement, step: JsonStep): boolean {
+    return !!step.hidden
         || (scenario.before || []).includes(step)
         || (scenario.after || []).includes(step);
 }
 
-function countStepsWithoutHooks(reportFile, predicate) {
+function countStepsWithoutHooks(reportFile: JsonFeature, predicate: (step: JsonStep) => boolean): number {
     return reportFile.elements
         .map(scenario => (scenario.steps || [])
             .filter(step => !isHook(scenario, step) && predicate(step))
@@ -140,16 +150,16 @@ function countStepsWithoutHooks(reportFile, predicate) {
         .reduce((a, b) => a + b, 0);
 }
 
-function getFailedSteps(scenario) {
+function getFailedSteps(scenario: JsonElement): JsonStep[] {
     return getStepByStatus(scenario, 'failed');
 }
-function getUndefinedSteps(scenario) {
+function getUndefinedSteps(scenario: JsonElement): JsonStep[] {
     return getStepByStatus(scenario, 'undefined');
 }
-function getPendingSteps(scenario) {
+function getPendingSteps(scenario: JsonElement): JsonStep[] {
     return getStepByStatus(scenario, 'pending');
 }
-function getScenarioStatus(scenario) {
+function getScenarioStatus(scenario: JsonElement): ScenarioStatus {
     const steps = [...scenario.before || [], ...scenario.after || [], ...scenario.steps || []];
     for (const step of steps) {
         if (step.result.status === 'failed') {
@@ -165,7 +175,7 @@ function getScenarioStatus(scenario) {
     return 'success';
 }
 
-function getStepByStatus(scenario, status) {
+function getStepByStatus(scenario: JsonElement, status: string): JsonStep[] {
     const before = scenario.before || [];
     const after = scenario.after || [];
     const steps = scenario.steps || [];
@@ -174,31 +184,31 @@ function getStepByStatus(scenario, status) {
         .filter(step => step.result.status === status);
 }
 
-function hasFailed(scenario) {
+function hasFailed(scenario: JsonElement): boolean {
     return getFailedSteps(scenario).length > 0;
 }
 
-function hasUndefined(scenario) {
+function hasUndefined(scenario: JsonElement): boolean {
     return getUndefinedSteps(scenario).length > 0;
 }
 
-function hasPending(scenario) {
+function hasPending(scenario: JsonElement): boolean {
     return getPendingSteps(scenario).length > 0;
 }
 
-function buildFailData(fileReport, scenario) {
+function buildFailData(fileReport: JsonFeature, scenario: JsonElement): StepData {
     return buildStepData(fileReport, scenario, getFailedSteps);
 }
 
-function buildUndefinedData(fileReport, scenario) {
+function buildUndefinedData(fileReport: JsonFeature, scenario: JsonElement): StepData {
     return buildStepData(fileReport, scenario, getUndefinedSteps);
 }
 
-function buildPendingData(fileReport, scenario) {
+function buildPendingData(fileReport: JsonFeature, scenario: JsonElement): StepData {
     return buildStepData(fileReport, scenario, getPendingSteps);
 }
 
-function getHookName(scenario, hook) {
+function getHookName(scenario: JsonElement, hook: JsonStep): string {
     if (hook.keyword) {
         return `${hook.keyword.trim()} hook`;
     } else if ((scenario.before || []).includes(hook)) {
@@ -209,14 +219,14 @@ function getHookName(scenario, hook) {
     return 'Hook';
 }
 
-function buildStepData(fileReport, scenario, getStepsFunction) {
+function buildStepData(fileReport: JsonFeature, scenario: JsonElement, getStepsFunction: (scenario: JsonElement) => JsonStep[]): StepData {
     const step = getStepsFunction(scenario)[0];
     const stepIsHook = isHook(scenario, step);
     return {
         file: fileReport.uri,
         line: stepIsHook ? scenario.line : step.line,
         title: scenario.name,
-        step: stepIsHook ? getHookName(scenario, step) : step.name,
+        step: stepIsHook ? getHookName(scenario, step) : step.name ?? '',
         error: step.result.error_message
     }
 }
