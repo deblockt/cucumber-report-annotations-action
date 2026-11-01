@@ -60706,7 +60706,7 @@ module.exports = { run };
 const path = __nccwpck_require__(6928);
 
 function reportOutputName(reportFile) {
-    return path.basename(reportFile).replace(' ', '_').replace('.json', '');
+    return path.basename(reportFile, path.extname(reportFile)).replaceAll(' ', '_');
 }
 
 function setOutputs(core, reportFile, counts) {

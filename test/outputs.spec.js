@@ -41,13 +41,13 @@ describe('outputs', () => {
     });
 
     // the end-to-end workflow reads cucumber-report-empty_failed_scenarios for both formats
-    it('[bug 7] should remove the ndjson extension from the output name', () => {
+    it('should remove the ndjson extension from the output name', () => {
         const core = fakeCore();
         setOutputs(core, '/workspace/cucumber-report.ndjson', counts);
         assert.deepStrictEqual(Object.keys(core.outputs), outputNames('cucumber-report'));
     });
 
-    it('[bug 7] should replace all the spaces of the output name', () => {
+    it('should replace all the spaces of the output name', () => {
         const core = fakeCore();
         setOutputs(core, '/workspace/my cucumber report.json', counts);
         assert.deepStrictEqual(Object.keys(core.outputs), outputNames('my_cucumber_report'));
