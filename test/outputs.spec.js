@@ -24,7 +24,7 @@ describe('outputs', () => {
         assert.strictEqual(core.outputs['cucumber-report_passed_scenarios'], 1);
     });
 
-    it('[bug 1] should publish the step counts', () => {
+    it('should publish the step counts', () => {
         const core = fakeCore();
         setOutputs(core, '/workspace/cucumber-report.json', counts);
         assert.strictEqual(core.outputs['cucumber-report_failed_steps'], 4);
