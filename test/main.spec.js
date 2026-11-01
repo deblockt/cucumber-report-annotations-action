@@ -176,11 +176,12 @@ describe('main', () => {
         });
     });
 
-    it('[error handling] should fail the action when a report cannot be read', async () => {
+    it('should fail the action when a report cannot be read', async () => {
         const { core } = await runAction({
             reportFiles: ['/workspace/cucumber-report.json'],
             contentByFile: { '/workspace/cucumber-report.json': 'not a json report' }
         });
         assert.strictEqual(core.failures.length, 1);
+        assert.match(core.failures[0], /^Unable to publish the cucumber report \/workspace\/cucumber-report.json: .*is not valid JSON/);
     });
 });
