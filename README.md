@@ -37,7 +37,7 @@ All parameters in this action are optional, allowing flexibility in configuratio
 | **annotation-status-on-pending**        | Annotation status for pending steps. No annotation if not set.                          |                           | `notice`, `warning`, `failure`  |
 | **show-number-of-error-on-check-title** | Show the number of errors in the check title (visible in PR checks).                    | `true`                    | `true`, `false`                 |
 | **show-global-summary-report**          | Display a full summary report for each feature file.                                    | `false`                   | `true`, `false`                 |
-| **number-of-test-error-to-fail-job**    | Number of test errors required to fail the build. <br> `-1` prevents the build from failing. | `-1`                      |                                 |
+| **number-of-test-error-to-fail-job**    | Number of test errors required to fail the build. Undefined and pending steps count as errors when an annotation is created for them (`annotation-status-on-undefined`, `annotation-status-on-pending`). <br> `-1` prevents the build from failing. | `-1`                      |                                 |
 
 ## Outputs
 
