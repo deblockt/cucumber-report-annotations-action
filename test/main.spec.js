@@ -126,10 +126,19 @@ describe('main', () => {
         assert.strictEqual(core.outputs['nominal_passed_scenarios'], 1);
     });
 
-    it('[bug 8] should not count undefined steps as errors to fail the job', async () => {
+    // the end-to-end workflow fails the job on pending steps annotated as failure
+    it('should count the undefined steps annotations as errors to fail the job', async () => {
         const { core } = await runAction({
             reportFiles: [fixture('undefined-steps.json')],
             inputs: { 'annotation-status-on-undefined': 'warning', 'number-of-test-error-to-fail-job': '1' }
+        });
+        assert.deepStrictEqual(core.failures, ['1 test(s) in error']);
+    });
+
+    it('should not count the undefined steps without annotation to fail the job', async () => {
+        const { core } = await runAction({
+            reportFiles: [fixture('undefined-steps.json')],
+            inputs: { 'number-of-test-error-to-fail-job': '1' }
         });
         assert.deepStrictEqual(core.failures, []);
     });
