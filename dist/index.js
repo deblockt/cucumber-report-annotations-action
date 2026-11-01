@@ -60423,7 +60423,310 @@ module.exports = {
 
 /***/ }),
 
-/***/ 6346:
+/***/ 5111:
+/***/ ((module) => {
+
+function emojiByStatus(status) {
+    switch (status) {
+        case 'success':
+            return '✅';
+        case 'failed':
+            return '❌'
+        case 'pending':
+            return '⌛';
+        default:
+            return '-';
+    }
+}
+
+async function buildStepAnnotation(cucumberError, status, errorType, resolvePath) {
+    return {
+        path: (await resolvePath(cucumberError.file)) || cucumberError.file,
+        start_line: cucumberError.line || 0,
+        end_line: cucumberError.line || 0,
+        start_column: 0,
+        end_column: 0,
+        annotation_level: status,
+        title: cucumberError.title + ' ' + errorType + '.',
+        message: 'Scenario: ' + cucumberError.title + '\nStep: ' + cucumberError.step + '\nError: \n' + cucumberError.error
+    }
+}
+
+async function buildReportDetailAnnotation(fileReport, resolvePath) {
+    const message = fileReport.scenarios
+        .map(scenario => `${emojiByStatus(scenario.status)} Scenario: ${scenario.name}`)
+        .join('\n');
+
+    return {
+        path: (await resolvePath(fileReport.file)) || fileReport.file,
+        start_line: 0,
+        end_line: 0,
+        start_column: 0,
+        end_column: 0,
+        annotation_level: 'notice',
+        title: `Feature: ${fileReport.name} Report`,
+        message
+    };
+}
+
+// failed steps annotations, followed by the undefined and pending ones when their annotation status is set
+async function buildStepAnnotations(reportResult, { annotationStatusOnError, annotationStatusOnUndefined, annotationStatusOnPending }, resolvePath) {
+    const stepsByType = [
+        [reportResult.failedSteps, annotationStatusOnError, 'Failed'],
+        [annotationStatusOnUndefined ? reportResult.undefinedSteps : [], annotationStatusOnUndefined, 'Undefined'],
+        [annotationStatusOnPending ? reportResult.pendingSteps : [], annotationStatusOnPending, 'Pending']
+    ];
+    return Promise.all(stepsByType.flatMap(([steps, status, errorType]) =>
+        steps.map(step => buildStepAnnotation(step, status, errorType, resolvePath))
+    ));
+}
+
+function buildReportDetailAnnotations(reportResult, resolvePath) {
+    return Promise.all(reportResult.listAllScenarioByFile.map(fileReport => buildReportDetailAnnotation(fileReport, resolvePath)));
+}
+
+module.exports = {
+    buildStepAnnotations,
+    buildReportDetailAnnotations
+};
+
+
+/***/ }),
+
+/***/ 1333:
+/***/ ((module) => {
+
+function buildCheckTitle(globalInformation, { checkName, showNumberOfErrorOnCheckTitle }) {
+    const failed = globalInformation.failedScenarioNumber;
+    return showNumberOfErrorOnCheckTitle == 'true' && failed > 0
+        ? `${checkName} (${failed} error${failed > 1 ? 's' : ''})`
+        : checkName;
+}
+
+function computeCheckStatus(globalInformation, { checkStatusOnError, checkStatusOnUndefined, checkStatusOnPending }) {
+    if (globalInformation.failedScenarioNumber > 0 && checkStatusOnError !== 'success') {
+        return checkStatusOnError;
+    }
+    if (globalInformation.undefinedStepsNumber > 0 && checkStatusOnUndefined !== 'success') {
+        return checkStatusOnUndefined;
+    }
+    if (globalInformation.pendingStepNumber > 0) {
+        return checkStatusOnPending;
+    }
+    return 'success';
+}
+
+function buildCheckRequest({ context, inputs, globalInformation, summary, annotations }) {
+    const pullRequest = context.payload.pull_request;
+    return {
+        ...context.repo,
+        name: inputs.checkName,
+        head_sha: (pullRequest && pullRequest.head.sha) || context.sha,
+        status: 'completed',
+        conclusion: computeCheckStatus(globalInformation, inputs),
+        output: {
+            title: buildCheckTitle(globalInformation, inputs),
+            summary,
+            annotations
+        }
+    };
+}
+
+function shouldFailJob(errorCount, { numberOfTestErrorToFailJob }) {
+    return numberOfTestErrorToFailJob != -1 && errorCount >= numberOfTestErrorToFailJob;
+}
+
+module.exports = {
+    buildCheckTitle,
+    computeCheckStatus,
+    buildCheckRequest,
+    shouldFailJob
+};
+
+
+/***/ }),
+
+/***/ 4145:
+/***/ ((module) => {
+
+function memoize(fn) {
+    const cache = {};
+
+    return (...args) => {
+        let argsString = JSON.stringify(args);
+        return argsString in cache
+          ? cache[argsString]
+          : (cache[argsString] = fn(...args));
+    }
+}
+
+function toRelativePath(featureFile, repoName) {
+    const indexOfRepoName = featureFile.indexOf(repoName);
+    return featureFile.substring(indexOfRepoName + repoName.length * 2 + 2);
+}
+
+// returns a memoized function resolving a feature file of a report to its path in the repository
+function createFileMatcher({ core, glob, repoName }) {
+    async function findBestFileMatch(file) {
+        let searchFile = file;
+        if (searchFile.startsWith('classpath:')) {
+            searchFile = searchFile.substring(10);
+        }
+        const globber = await glob.create('**/' + searchFile, {
+            followSymbolicLinks: false,
+        });
+        const files = await globber.glob()
+        if (files.length > 0) {
+            const filePathWithoutWorkspace = toRelativePath(files[0], repoName);
+
+            core.debug(`Best path found for ${file} is ${filePathWithoutWorkspace}.`);
+            return filePathWithoutWorkspace;
+        }
+
+        core.warning(`No file matching "${file}" was found in the project.`);
+
+        return undefined;
+    }
+
+    return memoize(findBestFileMatch);
+}
+
+module.exports = { createFileMatcher };
+
+
+/***/ }),
+
+/***/ 7936:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+const reportReaderJson = __nccwpck_require__(6707);
+const reportReaderNdJson = __nccwpck_require__(9189);
+const { createFileMatcher } = __nccwpck_require__(4145);
+const { buildStepAnnotations, buildReportDetailAnnotations } = __nccwpck_require__(5111);
+const { setOutputs } = __nccwpck_require__(7935);
+const { buildSummaryCounts, buildSummary } = __nccwpck_require__(9449);
+const { buildCheckRequest, shouldFailJob } = __nccwpck_require__(1333);
+
+function readInputs(core) {
+    return {
+        inputPath: core.getInput('path'),
+        checkName: core.getInput('name'),
+        accessToken: core.getInput('access-token'),
+        checkStatusOnError: core.getInput('check-status-on-error'),
+        checkStatusOnUndefined: core.getInput('check-status-on-undefined'),
+        checkStatusOnPending: core.getInput('check-status-on-pending'),
+        annotationStatusOnError: core.getInput('annotation-status-on-error'),
+        annotationStatusOnUndefined: core.getInput('annotation-status-on-undefined'),
+        annotationStatusOnPending: core.getInput('annotation-status-on-pending'),
+        showNumberOfErrorOnCheckTitle: core.getInput('show-number-of-error-on-check-title'),
+        numberOfTestErrorToFailJob: core.getInput('number-of-test-error-to-fail-job'),
+        showGlobalSummaryReport: core.getInput('show-global-summary-report'),
+        ignoreNoReportFound: core.getInput('ignore-no-report-found')
+    };
+}
+
+async function run({ core, github, glob, fs }) {
+    const inputs = readInputs(core);
+    const resolvePath = createFileMatcher({ core, glob, repoName: github.context.repo.repo });
+    const globber = await glob.create(inputs.inputPath, {
+        followSymbolicLinks: false,
+    });
+    core.info("start to read cucumber logs using path " + inputs.inputPath);
+
+    const reportFiles = await globber.glob();
+    if (reportFiles.length === 0) {
+        if (inputs.ignoreNoReportFound === 'false') {
+            core.setFailed(`No file matching "${inputs.inputPath}" was found in the project.`);
+        } else {
+            core.info(`No file matching "${inputs.inputPath}" was found in the project.`);
+        }
+        return;
+    }
+    const octokit = github.getOctokit(inputs.accessToken);
+    for await (const cucumberReportFile of reportFiles) {
+        core.info("found cucumber report " + cucumberReportFile);
+
+        const reportResultString = await fs.promises.readFile(cucumberReportFile);
+        const reportResult = (cucumberReportFile.endsWith('.json') ? reportReaderJson : reportReaderNdJson).reader(reportResultString);
+        const globalInformation = reportResult.globalInformation;
+        const counts = buildSummaryCounts(globalInformation);
+        setOutputs(core, cucumberReportFile, counts);
+
+        const summary = buildSummary(globalInformation, counts);
+        const errorAnnotations = await buildStepAnnotations(reportResult, inputs, resolvePath);
+
+        // TODO make an update request if there are more than 50 annotations
+        const createCheckRequest = buildCheckRequest({
+            context: github.context,
+            inputs,
+            globalInformation,
+            summary,
+            annotations: errorAnnotations.slice(0, 49)
+        });
+        const checkTitle = createCheckRequest.output.title;
+
+        core.info('Creating summary:\n' + summary);
+        await core.summary
+          .addHeading(checkTitle, 4)
+          .addRaw("\n" + summary)
+          .write()
+
+        core.info('Sending cucumber annotations');
+        const checksReponse = await octokit.rest.checks.create(createCheckRequest);
+
+        if (shouldFailJob(errorAnnotations.length, inputs)) {
+            core.setFailed(`${errorAnnotations.length} test(s) in error`);
+        }
+
+        if (inputs.showGlobalSummaryReport === 'true') {
+            core.info('Building all scenario summary')
+            const allAnnotations = await buildReportDetailAnnotations(reportResult, resolvePath);
+            core.info('Send core scenario summary')
+            await octokit.rest.checks.update({
+                ...github.context.repo,
+                check_run_id: checksReponse.data.id,
+                output: {
+                    title: checkTitle,
+                    summary,
+                    annotations: allAnnotations
+                }
+            });
+        }
+    }
+}
+
+module.exports = { run };
+
+
+/***/ }),
+
+/***/ 7935:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+const path = __nccwpck_require__(6928);
+
+function reportOutputName(reportFile) {
+    return path.basename(reportFile).replace(' ', '_').replace('.json', '');
+}
+
+function setOutputs(core, reportFile, counts) {
+    const outputName = reportOutputName(reportFile);
+    for (const type in counts.scenarios) {
+        core.debug(`publish output ${outputName}_${type}_scenarios=${counts.scenarios[type]}`);
+        core.setOutput(`${outputName}_${type}_scenarios`, counts.scenarios[type]);
+    }
+    for (const type in counts.steps) {
+        core.debug(`publish output ${outputName}_${type}_steps=${counts.scenarios[type]}`);
+        core.setOutput(`${outputName}_${type}_steps`, counts.scenarios[type]);
+    }
+}
+
+module.exports = { setOutputs };
+
+
+/***/ }),
+
+/***/ 6707:
 /***/ ((module) => {
 
 const EMPTY_GLOBAL_INFO = {
@@ -60651,7 +60954,7 @@ function buildStepData(fileReport, scenario, getStepsFunction) {
 
 /***/ }),
 
-/***/ 4820:
+/***/ 9189:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
 const core = __nccwpck_require__(7484);
@@ -60889,6 +61192,50 @@ function getTestCaseStatus(testCase) {
     }
     return 'success';
 }
+
+
+/***/ }),
+
+/***/ 9449:
+/***/ ((module) => {
+
+function buildSummaryCounts(globalInformation) {
+    return {
+        scenarios: {
+            'failed': globalInformation.failedScenarioNumber,
+            'undefined': globalInformation.undefinedScenarioNumber,
+            'pending': globalInformation.pendingScenarioNumber,
+            'passed': globalInformation.succeedScenarioNumber
+        },
+        steps: {
+            'failed': globalInformation.failedStepsNumber,
+            'undefined': globalInformation.undefinedStepsNumber,
+            'skipped': globalInformation.skippedStepsNumber,
+            'pending': globalInformation.pendingStepNumber,
+            'passed': globalInformation.succeedStepsNumber
+        }
+    };
+}
+
+function buildSummaryLine(itemNumber, itemType, itemCounts) {
+    const header = itemNumber + ' ' + itemType;
+    const counts = Object.keys(itemCounts)
+        .filter(key => itemCounts[key] > 0)
+        .map(key => itemCounts[key] + ' ' + key)
+        .join(', ');
+    return `    ${header} (${counts})`;
+}
+
+function buildSummary(globalInformation, counts) {
+    return buildSummaryLine(globalInformation.scenarioNumber, 'Scenarios', counts.scenarios)
+        + '\n'
+        + buildSummaryLine(globalInformation.stepsNumber, 'Steps', counts.steps);
+}
+
+module.exports = {
+    buildSummaryCounts,
+    buildSummary
+};
 
 
 /***/ }),
@@ -67341,261 +67688,10 @@ const core = __nccwpck_require__(7484);
 const github = __nccwpck_require__(3228);
 const glob = __nccwpck_require__(7206);
 const fs = __nccwpck_require__(9896);
-const reportReaderJson = __nccwpck_require__(6346);
-const reportReaderNdJson = __nccwpck_require__(4820);
-const path = __nccwpck_require__(6928);
+const { run } = __nccwpck_require__(7936);
 
-function memoize(fn) {
-    const cache = {};
+run({ core, github, glob, fs });
 
-    return (...args) => {
-        let argsString = JSON.stringify(args);
-        return argsString in cache
-          ? cache[argsString]
-          : (cache[argsString] = fn(...args));
-    }
-}
-
-async function findBestFileMatch(file) {
-    let searchFile = file;
-    if (searchFile.startsWith('classpath:')) {
-        searchFile = searchFile.substring(10);
-    }
-    const globber = await glob.create('**/' + searchFile, {
-        followSymbolicLinks: false,
-    });
-    const files = await globber.glob()
-    if (files.length > 0) {
-        const featureFile = files[0];
-        const repoName = github.context.repo.repo;
-        const indexOfRepoName = featureFile.indexOf(repoName);
-        const filePathWithoutWorkspace = featureFile.substring(indexOfRepoName + repoName.length * 2 + 2);
-
-        core.debug(`Best path found for ${file} is ${filePathWithoutWorkspace}.`);
-        return filePathWithoutWorkspace;
-    }
-
-    core.warning(`No file matching "${file}" was found in the project.`);
-
-    return undefined;
-}
-
-const memoizedFindBestFileMatch = memoize(findBestFileMatch)
-
-async function buildStepAnnotation(cucumberError, status, errorType) {
-    return {
-        path: (await memoizedFindBestFileMatch(cucumberError.file)) || cucumberError.file,
-        start_line: cucumberError.line || 0,
-        end_line: cucumberError.line || 0,
-        start_column: 0,
-        end_column: 0,
-        annotation_level: status,
-        title: cucumberError.title + ' ' + errorType + '.',
-        message: 'Scenario: ' + cucumberError.title + '\nStep: ' + cucumberError.step + '\nError: \n' + cucumberError.error
-    }
-}
-
-async function buildReportDetailAnnotation(fileReport) {
-    const message = fileReport.scenarios
-        .map(scenario => `${emojiByStatus(scenario.status)} Scenario: ${scenario.name}`)
-        .join('\n');
-
-    return {
-        path: (await memoizedFindBestFileMatch(fileReport.file)) || fileReport.file,
-        start_line: 0,
-        end_line: 0,
-        start_column: 0,
-        end_column: 0,
-        annotation_level: 'notice',
-        title: `Feature: ${fileReport.name} Report`,
-        message
-    };
-}
-
-async function buildErrorAnnotations(cucumberError, statusOnError) {
-    return await buildStepAnnotation(cucumberError, statusOnError, 'Failed');
-}
-
-async function buildUndefinedAnnotation(cucumberError, statusOnSkipped) {
-    return await buildStepAnnotation(cucumberError, statusOnSkipped, 'Undefined');
-}
-
-async function buildPendingAnnotation(cucumberError, statusOnPending) {
-    return await buildStepAnnotation(cucumberError, statusOnPending, 'Pending');
-}
-
-function emojiByStatus(status) {
-    switch (status) {
-        case 'success':
-            return '✅';
-        case 'failed':
-            return '❌'
-        case 'pending':
-            return '⌛';
-        default:
-            return '-';
-    }
-}
-
-function setOutput(core, outputName, summaryScenario, summarySteps) {
-    for (const type in summaryScenario) {
-        core.debug(`publish output ${outputName}_${type}_scenarios=${summaryScenario[type]}`);
-        core.setOutput(`${outputName}_${type}_scenarios`, summaryScenario[type]);
-    }
-    for (const type in summarySteps) {
-        core.debug(`publish output ${outputName}_${type}_steps=${summaryScenario[type]}`);
-        core.setOutput(`${outputName}_${type}_steps`, summaryScenario[type]);
-    }
-}
-
-(async() => {
-    const inputPath = core.getInput('path');
-    const checkName = core.getInput('name');
-    const accessToken = core.getInput('access-token');
-    const checkStatusOnError = core.getInput('check-status-on-error');
-    const checkStatusOnUndefined = core.getInput('check-status-on-undefined');
-    const checkStatusOnPending = core.getInput('check-status-on-pending');
-    const annotationStatusOnError = core.getInput('annotation-status-on-error');
-    const annotationStatusOnUndefined = core.getInput('annotation-status-on-undefined');
-    const annotationStatusOnPending = core.getInput('annotation-status-on-pending');
-    const showNumberOfErrorOnCheckTitle = core.getInput('show-number-of-error-on-check-title');
-    const numberOfTestErrorToFailJob = core.getInput('number-of-test-error-to-fail-job');
-    const showGlobalSummaryReport = core.getInput('show-global-summary-report')
-    const ignoreNoReportFound = core.getInput('ignore-no-report-found');
-    const globber = await glob.create(inputPath, {
-        followSymbolicLinks: false,
-    });
-    core.info("start to read cucumber logs using path " + inputPath);
-
-    const reportFiles = await globber.glob();
-    if (reportFiles.length === 0) {
-        if (ignoreNoReportFound === 'false') {
-            core.setFailed(`No file matching "${inputPath}" was found in the project.`);
-        } else {
-            core.info(`No file matching "${inputPath}" was found in the project.`);
-        }
-        return;
-    }
-    for await (const cucumberReportFile of reportFiles) {
-        core.info("found cucumber report " + cucumberReportFile);
-
-        const reportOutputName = path.basename(cucumberReportFile).replace(' ', '_').replace('.json', '');
-        const reportResultString = await fs.promises.readFile(cucumberReportFile);
-        const reportResult = (cucumberReportFile.endsWith('.json') ? reportReaderJson : reportReaderNdJson).reader(reportResultString);
-        const globalInformation = reportResult.globalInformation;
-        const summaryScenario = {
-            'failed': globalInformation.failedScenarioNumber,
-            'undefined': globalInformation.undefinedScenarioNumber,
-            'pending': globalInformation.pendingScenarioNumber,
-            'passed': globalInformation.succeedScenarioNumber
-        };
-        const summarySteps = {
-            'failed': globalInformation.failedStepsNumber,
-            'undefined': globalInformation.undefinedStepsNumber,
-            'skipped': globalInformation.skippedStepsNumber,
-            'pending': globalInformation.pendingStepNumber,
-            'passed': globalInformation.succeedStepsNumber
-        };
-        setOutput(core, reportOutputName, summaryScenario, summarySteps);
-
-        const summary =
-               buildSummary(globalInformation.scenarioNumber, 'Scenarios', summaryScenario)
-            + '\n'
-            + buildSummary(globalInformation.stepsNumber, 'Steps', summarySteps);
-
-        const errors = reportResult.failedSteps;
-        var errorAnnotations = await Promise.all(errors.map(e => buildErrorAnnotations(e, annotationStatusOnError)));
-
-        if (annotationStatusOnUndefined) {
-            const undefined = reportResult.undefinedSteps;
-            var undefinedAnnotations = await Promise.all(undefined.map(e => buildUndefinedAnnotation(e, annotationStatusOnUndefined)));
-            errorAnnotations.push(...undefinedAnnotations);
-        }
-        if (annotationStatusOnPending) {
-            const pending = reportResult.pendingSteps;
-            var pendingAnnotations = await Promise.all(pending.map(e => buildPendingAnnotation(e, annotationStatusOnPending)));
-            errorAnnotations.push(...pendingAnnotations);
-        }
-
-        // TODO make an update request if there are more than 50 annotations
-        const errorAnnotationsToCreate = errorAnnotations.slice(0, 49);
-        const pullRequest = github.context.payload.pull_request;
-        const head_sha = (pullRequest && pullRequest.head.sha) || github.context.sha;
-        const annotations = [
-            ...errorAnnotationsToCreate
-        ];
-
-        var additionnalTitleInfo = '';
-        if (showNumberOfErrorOnCheckTitle == 'true' && globalInformation.failedScenarioNumber > 0) {
-            additionnalTitleInfo = ` (${globalInformation.failedScenarioNumber} error${globalInformation.failedScenarioNumber > 1 ? 's': ''})`;
-        }
-        var checkStatus = '';
-        if (globalInformation.failedScenarioNumber > 0 && checkStatusOnError !== 'success') {
-            checkStatus = checkStatusOnError;
-        } else if (globalInformation.undefinedStepsNumber > 0 && checkStatusOnUndefined !== 'success') {
-            checkStatus = checkStatusOnUndefined;
-        } else if (globalInformation.pendingStepNumber > 0) {
-            checkStatus = checkStatusOnPending;
-        } else {
-            checkStatus = 'success';
-        }
-        const createCheckRequest = {
-            ...github.context.repo,
-            name: checkName,
-            head_sha,
-            status: 'completed',
-            conclusion: checkStatus,
-            output: {
-              title: checkName + additionnalTitleInfo,
-              summary,
-              annotations
-            },
-          };
-
-        core.info('Creating summary:\n' + summary);
-        await core.summary
-          .addHeading(checkName + additionnalTitleInfo, 4)
-          .addRaw("\n" + summary)
-          .write()
-
-        core.info('Sending cucumber annotations');
-        const octokit = github.getOctokit(accessToken);
-        const checksReponse = await octokit.rest.checks.create(createCheckRequest);
-
-        if (numberOfTestErrorToFailJob != -1 && errorAnnotations.length >= numberOfTestErrorToFailJob) {
-            core.setFailed(`${errorAnnotations.length} test(s) in error`);
-        }
-
-        if (showGlobalSummaryReport === 'true') {
-            core.info('Building all scenario summary')
-            const allScenarioByFile = reportResult.listAllScenarioByFile;
-            const allAnnoattions = await Promise.all(
-                allScenarioByFile
-                    .map(buildReportDetailAnnotation)
-                    .reduce((a, b) => a.concat(b), [])
-            );
-            core.info('Send core scenario summary')
-            await octokit.rest.checks.update({
-                ...github.context.repo,
-                check_run_id: checksReponse.data.id,
-                output: {
-                    title: checkName + additionnalTitleInfo,
-                    summary,
-                    annotations: allAnnoattions
-                }
-            });
-        }
-    }
-})();
-
-function buildSummary(itemNumber, itemType, itemCounts) {
-    const header = itemNumber + ' ' + itemType;
-    const counts = Object.keys(itemCounts)
-        .filter(key => itemCounts[key] > 0)
-        .map(key => itemCounts[key] + ' ' + key)
-        .join(', ');
-    return `    ${header} (${counts})`;
-}
 module.exports = __webpack_exports__;
 /******/ })()
 ;
