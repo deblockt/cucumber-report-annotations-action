@@ -25,7 +25,44 @@ function readInputs(core) {
     };
 }
 
-async function run({ core, github, glob, fs, workspace = process.cwd() }) {
+async function publishReportFile({ core, github, fs, octokit, inputs, resolvePath }, cucumberReportFile, remainingAnnotations) {
+    const reportResultString = await fs.promises.readFile(cucumberReportFile);
+    const reportResult = (cucumberReportFile.endsWith('.json') ? reportReaderJson : reportReaderNdJson).reader(reportResultString);
+    const globalInformation = reportResult.globalInformation;
+    const counts = buildSummaryCounts(globalInformation);
+    setOutputs(core, cucumberReportFile, counts);
+
+    const { annotations, errorNumber, notSentNumber } = await buildAnnotations(reportResult, inputs, remainingAnnotations, resolvePath);
+
+    const summary = buildSummary(globalInformation, counts, notSentNumber, inputs.maxNumberOfAnnotations);
+    const checkRequests = buildCheckRequests({
+        context: github.context,
+        inputs,
+        globalInformation,
+        summary,
+        annotations
+    });
+    const checkTitle = checkRequests.create.output.title;
+
+    core.info('Creating summary:\n' + summary);
+    await core.summary
+      .addHeading(checkTitle, 4)
+      .addRaw("\n" + summary)
+      .write()
+
+    core.info('Sending cucumber annotations');
+    const checksReponse = await octokit.rest.checks.create(checkRequests.create);
+    for (const updateRequest of checkRequests.updates) {
+        await octokit.rest.checks.update({ ...updateRequest, check_run_id: checksReponse.data.id });
+    }
+
+    if (shouldFailJob(errorNumber, inputs)) {
+        core.setFailed(`${errorNumber} test(s) in error`);
+    }
+    return annotations.length;
+}
+
+async function publishReports({ core, github, glob, fs, workspace = process.cwd() }) {
     const inputs = readInputs(core);
     const resolvePath = createFileMatcher({ core, glob, workspace });
     const globber = await glob.create(inputs.inputPath, {
@@ -42,45 +79,25 @@ async function run({ core, github, glob, fs, workspace = process.cwd() }) {
         }
         return;
     }
-    const octokit = github.getOctokit(inputs.accessToken);
+    const dependencies = { core, github, fs, octokit: github.getOctokit(inputs.accessToken), inputs, resolvePath };
     let remainingAnnotations = inputs.maxNumberOfAnnotations;
     for await (const cucumberReportFile of reportFiles) {
         core.info("found cucumber report " + cucumberReportFile);
-
-        const reportResultString = await fs.promises.readFile(cucumberReportFile);
-        const reportResult = (cucumberReportFile.endsWith('.json') ? reportReaderJson : reportReaderNdJson).reader(reportResultString);
-        const globalInformation = reportResult.globalInformation;
-        const counts = buildSummaryCounts(globalInformation);
-        setOutputs(core, cucumberReportFile, counts);
-
-        const { annotations, errorNumber, notSentNumber } = await buildAnnotations(reportResult, inputs, remainingAnnotations, resolvePath);
-        remainingAnnotations -= annotations.length;
-
-        const summary = buildSummary(globalInformation, counts, notSentNumber, inputs.maxNumberOfAnnotations);
-        const checkRequests = buildCheckRequests({
-            context: github.context,
-            inputs,
-            globalInformation,
-            summary,
-            annotations
-        });
-        const checkTitle = checkRequests.create.output.title;
-
-        core.info('Creating summary:\n' + summary);
-        await core.summary
-          .addHeading(checkTitle, 4)
-          .addRaw("\n" + summary)
-          .write()
-
-        core.info('Sending cucumber annotations');
-        const checksReponse = await octokit.rest.checks.create(checkRequests.create);
-        for (const updateRequest of checkRequests.updates) {
-            await octokit.rest.checks.update({ ...updateRequest, check_run_id: checksReponse.data.id });
+        try {
+            const sentAnnotationNumber = await publishReportFile(dependencies, cucumberReportFile, remainingAnnotations);
+            remainingAnnotations -= sentAnnotationNumber;
+        } catch (error) {
+            throw new Error(`Unable to publish the cucumber report ${cucumberReportFile}: ${error.message}`, { cause: error });
         }
+    }
+}
 
-        if (shouldFailJob(errorNumber, inputs)) {
-            core.setFailed(`${errorNumber} test(s) in error`);
-        }
+async function run(dependencies) {
+    try {
+        await publishReports(dependencies);
+    } catch (error) {
+        dependencies.core.debug(error.cause ? error.cause.stack : error.stack);
+        dependencies.core.setFailed(error.message);
     }
 }
 
