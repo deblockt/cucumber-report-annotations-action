@@ -41,23 +41,31 @@ async function buildReportDetailAnnotation(fileReport, resolvePath) {
     };
 }
 
-// failed steps annotations, followed by the undefined and pending ones when their annotation status is set
-async function buildStepAnnotations(reportResult, { annotationStatusOnError, annotationStatusOnUndefined, annotationStatusOnPending }, resolvePath) {
-    const stepsByType = [
-        [reportResult.failedSteps, annotationStatusOnError, 'Failed'],
-        [annotationStatusOnUndefined ? reportResult.undefinedSteps : [], annotationStatusOnUndefined, 'Undefined'],
-        [annotationStatusOnPending ? reportResult.pendingSteps : [], annotationStatusOnPending, 'Pending']
+function listStepsToAnnotate(reportResult, { annotationStatusOnError, annotationStatusOnUndefined, annotationStatusOnPending }) {
+    const stepsWithType = (steps, status, errorType) => steps.map(step => ({ step, status, errorType }));
+    return [
+        ...stepsWithType(reportResult.failedSteps, annotationStatusOnError, 'Failed'),
+        ...(annotationStatusOnUndefined ? stepsWithType(reportResult.undefinedSteps, annotationStatusOnUndefined, 'Undefined') : []),
+        ...(annotationStatusOnPending ? stepsWithType(reportResult.pendingSteps, annotationStatusOnPending, 'Pending') : [])
     ];
-    return Promise.all(stepsByType.flatMap(([steps, status, errorType]) =>
-        steps.map(step => buildStepAnnotation(step, status, errorType, resolvePath))
-    ));
 }
 
-function buildReportDetailAnnotations(reportResult, resolvePath) {
-    return Promise.all(reportResult.listAllScenarioByFile.map(fileReport => buildReportDetailAnnotation(fileReport, resolvePath)));
+// annotations over the maximum are not built, as resolving their path is costly
+async function buildAnnotations(reportResult, inputs, maxNumberOfAnnotations, resolvePath) {
+    const steps = listStepsToAnnotate(reportResult, inputs);
+    const fileReports = inputs.showGlobalSummaryReport === 'true' ? reportResult.listAllScenarioByFile : [];
+    const sentSteps = steps.slice(0, maxNumberOfAnnotations);
+    const sentFileReports = fileReports.slice(0, maxNumberOfAnnotations - sentSteps.length);
+
+    const annotations = await Promise.all([
+        ...sentSteps.map(({ step, status, errorType }) => buildStepAnnotation(step, status, errorType, resolvePath)),
+        ...sentFileReports.map(fileReport => buildReportDetailAnnotation(fileReport, resolvePath))
+    ]);
+    return {
+        annotations,
+        errorNumber: steps.length,
+        notSentNumber: steps.length + fileReports.length - annotations.length
+    };
 }
 
-module.exports = {
-    buildStepAnnotations,
-    buildReportDetailAnnotations
-};
+module.exports = { buildAnnotations };

@@ -15,7 +15,8 @@ const DEFAULT_INPUTS = {
     'show-number-of-error-on-check-title': 'true',
     'show-global-summary-report': 'false',
     'number-of-test-error-to-fail-job': '-1',
-    'ignore-no-report-found': 'false'
+    'ignore-no-report-found': 'false',
+    'max-number-of-annotations': '50'
 };
 
 function fixture(name) {
@@ -108,14 +109,11 @@ describe('main', () => {
                 assert.deepStrictEqual(core.failures, []);
             });
 
-            it('should send the global summary report', async () => {
+            it('should send the global summary report after the step annotations', async () => {
                 const { github } = await runAction({ reportFiles, inputs: { 'show-global-summary-report': 'true' } });
-                assert.strictEqual(github.updateRequests.length, 1);
-                const request = github.updateRequests[0];
-                assert.strictEqual(request.check_run_id, 42);
-                assert.strictEqual(request.output.title, 'Cucumber report (2 errors)');
-                const titles = request.output.annotations.map(annotation => annotation.title).sort();
-                assert.deepStrictEqual(titles, ['Feature: Test file Report', 'Feature: Test with background Report']);
+                const titles = allSentAnnotations(github).map(annotation => annotation.title);
+                assert.deepStrictEqual(titles.slice(2).sort(), ['Feature: Test file Report', 'Feature: Test with background Report']);
+                assert.ok(titles.slice(0, 2).every(title => title.endsWith(' Failed.')));
             });
         });
     }
@@ -143,30 +141,39 @@ describe('main', () => {
         assert.deepStrictEqual(core.failures, []);
     });
 
-    it('[bug 6] should send all the annotations, by batch of 50', async () => {
-        const scenarios = Array.from({ length: 60 }, (_, index) => `Scenario ${index}`);
-        const { github } = await runAction({
-            reportFiles: ['/workspace/cucumber-report.json'],
-            contentByFile: { '/workspace/cucumber-report.json': jsonReport([{ uri: 'a.feature', scenarios }]) }
-        });
-        for (const request of [...github.createRequests, ...github.updateRequests]) {
-            assert.ok(request.output.annotations.length <= 50, `${request.output.annotations.length} annotations sent in one request`);
+    describe('with more than 50 annotations', () => {
+        function failingReport(scenarioNumber, file = '/workspace/cucumber-report.json') {
+            const scenarios = Array.from({ length: scenarioNumber }, (_, index) => `Scenario ${index}`);
+            return { reportFiles: [file], contentByFile: { [file]: jsonReport([{ uri: 'a.feature', scenarios }]) } };
         }
-        assert.strictEqual(allSentAnnotations(github).length, 60);
-    });
 
-    it('[bug 6] should send the global summary report by batch of 50', async () => {
-        const features = Array.from({ length: 60 }, (_, index) => ({ uri: `feature-${index}.feature`, scenarios: ['Scenario'] }));
-        const { github } = await runAction({
-            reportFiles: ['/workspace/cucumber-report.json'],
-            contentByFile: { '/workspace/cucumber-report.json': jsonReport(features) },
-            inputs: { 'show-global-summary-report': 'true' }
+        it('should send the next annotations with check updates', async () => {
+            const { github } = await runAction({ ...failingReport(120), inputs: { 'max-number-of-annotations': '200' } });
+            assert.strictEqual(github.createRequests[0].output.annotations.length, 50);
+            assert.deepStrictEqual(github.updateRequests.map(request => request.check_run_id), [42, 42]);
+            assert.strictEqual(new Set(allSentAnnotations(github).map(annotation => annotation.title)).size, 120);
         });
-        for (const request of github.updateRequests) {
-            assert.ok(request.output.annotations.length <= 50, `${request.output.annotations.length} annotations sent in one request`);
-        }
-        const featureAnnotations = allSentAnnotations(github).filter(annotation => annotation.title.startsWith('Feature:'));
-        assert.strictEqual(featureAnnotations.length, 60);
+
+        it('should not send more annotations than the maximum', async () => {
+            const { github } = await runAction(failingReport(60));
+            assert.strictEqual(allSentAnnotations(github).length, 50);
+            assert.match(github.createRequests[0].output.summary, /10 annotation\(s\) not sent/);
+        });
+
+        it('should share the maximum between the reports', async () => {
+            const report1 = failingReport(30, '/workspace/report-1.json');
+            const report2 = failingReport(30, '/workspace/report-2.json');
+            const { github } = await runAction({
+                reportFiles: [...report1.reportFiles, ...report2.reportFiles],
+                contentByFile: { ...report1.contentByFile, ...report2.contentByFile }
+            });
+            assert.deepStrictEqual(github.createRequests.map(request => request.output.annotations.length), [30, 20]);
+        });
+
+        it('should fail the job with all the errors, even the ones not sent', async () => {
+            const { core } = await runAction({ ...failingReport(60), inputs: { 'number-of-test-error-to-fail-job': '55' } });
+            assert.deepStrictEqual(core.failures, ['60 test(s) in error']);
+        });
     });
 
     it('[error handling] should fail the action when a report cannot be read', async () => {

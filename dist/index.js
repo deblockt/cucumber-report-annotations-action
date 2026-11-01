@@ -60469,32 +60469,43 @@ async function buildReportDetailAnnotation(fileReport, resolvePath) {
     };
 }
 
-// failed steps annotations, followed by the undefined and pending ones when their annotation status is set
-async function buildStepAnnotations(reportResult, { annotationStatusOnError, annotationStatusOnUndefined, annotationStatusOnPending }, resolvePath) {
-    const stepsByType = [
-        [reportResult.failedSteps, annotationStatusOnError, 'Failed'],
-        [annotationStatusOnUndefined ? reportResult.undefinedSteps : [], annotationStatusOnUndefined, 'Undefined'],
-        [annotationStatusOnPending ? reportResult.pendingSteps : [], annotationStatusOnPending, 'Pending']
+function listStepsToAnnotate(reportResult, { annotationStatusOnError, annotationStatusOnUndefined, annotationStatusOnPending }) {
+    const stepsWithType = (steps, status, errorType) => steps.map(step => ({ step, status, errorType }));
+    return [
+        ...stepsWithType(reportResult.failedSteps, annotationStatusOnError, 'Failed'),
+        ...(annotationStatusOnUndefined ? stepsWithType(reportResult.undefinedSteps, annotationStatusOnUndefined, 'Undefined') : []),
+        ...(annotationStatusOnPending ? stepsWithType(reportResult.pendingSteps, annotationStatusOnPending, 'Pending') : [])
     ];
-    return Promise.all(stepsByType.flatMap(([steps, status, errorType]) =>
-        steps.map(step => buildStepAnnotation(step, status, errorType, resolvePath))
-    ));
 }
 
-function buildReportDetailAnnotations(reportResult, resolvePath) {
-    return Promise.all(reportResult.listAllScenarioByFile.map(fileReport => buildReportDetailAnnotation(fileReport, resolvePath)));
+// annotations over the maximum are not built, as resolving their path is costly
+async function buildAnnotations(reportResult, inputs, maxNumberOfAnnotations, resolvePath) {
+    const steps = listStepsToAnnotate(reportResult, inputs);
+    const fileReports = inputs.showGlobalSummaryReport === 'true' ? reportResult.listAllScenarioByFile : [];
+    const sentSteps = steps.slice(0, maxNumberOfAnnotations);
+    const sentFileReports = fileReports.slice(0, maxNumberOfAnnotations - sentSteps.length);
+
+    const annotations = await Promise.all([
+        ...sentSteps.map(({ step, status, errorType }) => buildStepAnnotation(step, status, errorType, resolvePath)),
+        ...sentFileReports.map(fileReport => buildReportDetailAnnotation(fileReport, resolvePath))
+    ]);
+    return {
+        annotations,
+        errorNumber: steps.length,
+        notSentNumber: steps.length + fileReports.length - annotations.length
+    };
 }
 
-module.exports = {
-    buildStepAnnotations,
-    buildReportDetailAnnotations
-};
+module.exports = { buildAnnotations };
 
 
 /***/ }),
 
 /***/ 1333:
 /***/ ((module) => {
+
+// the checks API accepts at most 50 annotations per request
+const MAX_ANNOTATIONS_PER_REQUEST = 50;
 
 function buildCheckTitle(globalInformation, { checkName, showNumberOfErrorOnCheckTitle }) {
     const failed = globalInformation.failedScenarioNumber;
@@ -60516,19 +60527,29 @@ function computeCheckStatus(globalInformation, { checkStatusOnError, checkStatus
     return 'success';
 }
 
-function buildCheckRequest({ context, inputs, globalInformation, summary, annotations }) {
+function buildCheckRequests({ context, inputs, globalInformation, summary, annotations }) {
     const pullRequest = context.payload.pull_request;
+    const output = {
+        title: buildCheckTitle(globalInformation, inputs),
+        summary
+    };
+    const updates = [];
+    for (let index = MAX_ANNOTATIONS_PER_REQUEST; index < annotations.length; index += MAX_ANNOTATIONS_PER_REQUEST) {
+        updates.push({
+            ...context.repo,
+            output: { ...output, annotations: annotations.slice(index, index + MAX_ANNOTATIONS_PER_REQUEST) }
+        });
+    }
     return {
-        ...context.repo,
-        name: inputs.checkName,
-        head_sha: (pullRequest && pullRequest.head.sha) || context.sha,
-        status: 'completed',
-        conclusion: computeCheckStatus(globalInformation, inputs),
-        output: {
-            title: buildCheckTitle(globalInformation, inputs),
-            summary,
-            annotations
-        }
+        create: {
+            ...context.repo,
+            name: inputs.checkName,
+            head_sha: (pullRequest && pullRequest.head.sha) || context.sha,
+            status: 'completed',
+            conclusion: computeCheckStatus(globalInformation, inputs),
+            output: { ...output, annotations: annotations.slice(0, MAX_ANNOTATIONS_PER_REQUEST) }
+        },
+        updates
     };
 }
 
@@ -60539,7 +60560,7 @@ function shouldFailJob(errorCount, { numberOfTestErrorToFailJob }) {
 module.exports = {
     buildCheckTitle,
     computeCheckStatus,
-    buildCheckRequest,
+    buildCheckRequests,
     shouldFailJob
 };
 
@@ -60608,10 +60629,10 @@ module.exports = { createFileMatcher };
 const reportReaderJson = __nccwpck_require__(6707);
 const reportReaderNdJson = __nccwpck_require__(9189);
 const { createFileMatcher } = __nccwpck_require__(4145);
-const { buildStepAnnotations, buildReportDetailAnnotations } = __nccwpck_require__(5111);
+const { buildAnnotations } = __nccwpck_require__(5111);
 const { setOutputs } = __nccwpck_require__(7935);
 const { buildSummaryCounts, buildSummary } = __nccwpck_require__(9449);
-const { buildCheckRequest, shouldFailJob } = __nccwpck_require__(1333);
+const { buildCheckRequests, shouldFailJob } = __nccwpck_require__(1333);
 
 function readInputs(core) {
     return {
@@ -60627,7 +60648,8 @@ function readInputs(core) {
         showNumberOfErrorOnCheckTitle: core.getInput('show-number-of-error-on-check-title'),
         numberOfTestErrorToFailJob: core.getInput('number-of-test-error-to-fail-job'),
         showGlobalSummaryReport: core.getInput('show-global-summary-report'),
-        ignoreNoReportFound: core.getInput('ignore-no-report-found')
+        ignoreNoReportFound: core.getInput('ignore-no-report-found'),
+        maxNumberOfAnnotations: Number(core.getInput('max-number-of-annotations'))
     };
 }
 
@@ -60649,6 +60671,7 @@ async function run({ core, github, glob, fs, workspace = process.cwd() }) {
         return;
     }
     const octokit = github.getOctokit(inputs.accessToken);
+    let remainingAnnotations = inputs.maxNumberOfAnnotations;
     for await (const cucumberReportFile of reportFiles) {
         core.info("found cucumber report " + cucumberReportFile);
 
@@ -60658,18 +60681,18 @@ async function run({ core, github, glob, fs, workspace = process.cwd() }) {
         const counts = buildSummaryCounts(globalInformation);
         setOutputs(core, cucumberReportFile, counts);
 
-        const summary = buildSummary(globalInformation, counts);
-        const errorAnnotations = await buildStepAnnotations(reportResult, inputs, resolvePath);
+        const { annotations, errorNumber, notSentNumber } = await buildAnnotations(reportResult, inputs, remainingAnnotations, resolvePath);
+        remainingAnnotations -= annotations.length;
 
-        // TODO make an update request if there are more than 50 annotations
-        const createCheckRequest = buildCheckRequest({
+        const summary = buildSummary(globalInformation, counts, notSentNumber, inputs.maxNumberOfAnnotations);
+        const checkRequests = buildCheckRequests({
             context: github.context,
             inputs,
             globalInformation,
             summary,
-            annotations: errorAnnotations.slice(0, 49)
+            annotations
         });
-        const checkTitle = createCheckRequest.output.title;
+        const checkTitle = checkRequests.create.output.title;
 
         core.info('Creating summary:\n' + summary);
         await core.summary
@@ -60678,25 +60701,13 @@ async function run({ core, github, glob, fs, workspace = process.cwd() }) {
           .write()
 
         core.info('Sending cucumber annotations');
-        const checksReponse = await octokit.rest.checks.create(createCheckRequest);
-
-        if (shouldFailJob(errorAnnotations.length, inputs)) {
-            core.setFailed(`${errorAnnotations.length} test(s) in error`);
+        const checksReponse = await octokit.rest.checks.create(checkRequests.create);
+        for (const updateRequest of checkRequests.updates) {
+            await octokit.rest.checks.update({ ...updateRequest, check_run_id: checksReponse.data.id });
         }
 
-        if (inputs.showGlobalSummaryReport === 'true') {
-            core.info('Building all scenario summary')
-            const allAnnotations = await buildReportDetailAnnotations(reportResult, resolvePath);
-            core.info('Send core scenario summary')
-            await octokit.rest.checks.update({
-                ...github.context.repo,
-                check_run_id: checksReponse.data.id,
-                output: {
-                    title: checkTitle,
-                    summary,
-                    annotations: allAnnotations
-                }
-            });
+        if (shouldFailJob(errorNumber, inputs)) {
+            core.setFailed(`${errorNumber} test(s) in error`);
         }
     }
 }
@@ -61232,10 +61243,17 @@ function buildSummaryLine(itemNumber, itemType, itemCounts) {
     return `    ${header} (${counts})`;
 }
 
-function buildSummary(globalInformation, counts) {
+function buildNotSentAnnotationsMessage(notSentNumber, maxNumberOfAnnotations) {
+    return notSentNumber > 0
+        ? `\n\n${notSentNumber} annotation(s) not sent: the maximum number of annotations (${maxNumberOfAnnotations}) is reached.`
+        : '';
+}
+
+function buildSummary(globalInformation, counts, notSentAnnotationNumber = 0, maxNumberOfAnnotations) {
     return buildSummaryLine(globalInformation.scenarioNumber, 'Scenarios', counts.scenarios)
         + '\n'
-        + buildSummaryLine(globalInformation.stepsNumber, 'Steps', counts.steps);
+        + buildSummaryLine(globalInformation.stepsNumber, 'Steps', counts.steps)
+        + buildNotSentAnnotationsMessage(notSentAnnotationNumber, maxNumberOfAnnotations);
 }
 
 module.exports = {

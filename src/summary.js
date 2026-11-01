@@ -25,10 +25,17 @@ function buildSummaryLine(itemNumber, itemType, itemCounts) {
     return `    ${header} (${counts})`;
 }
 
-function buildSummary(globalInformation, counts) {
+function buildNotSentAnnotationsMessage(notSentNumber, maxNumberOfAnnotations) {
+    return notSentNumber > 0
+        ? `\n\n${notSentNumber} annotation(s) not sent: the maximum number of annotations (${maxNumberOfAnnotations}) is reached.`
+        : '';
+}
+
+function buildSummary(globalInformation, counts, notSentAnnotationNumber = 0, maxNumberOfAnnotations) {
     return buildSummaryLine(globalInformation.scenarioNumber, 'Scenarios', counts.scenarios)
         + '\n'
-        + buildSummaryLine(globalInformation.stepsNumber, 'Steps', counts.steps);
+        + buildSummaryLine(globalInformation.stepsNumber, 'Steps', counts.steps)
+        + buildNotSentAnnotationsMessage(notSentAnnotationNumber, maxNumberOfAnnotations);
 }
 
 module.exports = {
