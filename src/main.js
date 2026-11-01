@@ -17,10 +17,10 @@ function readInputs(core) {
         annotationStatusOnError: core.getInput('annotation-status-on-error'),
         annotationStatusOnUndefined: core.getInput('annotation-status-on-undefined'),
         annotationStatusOnPending: core.getInput('annotation-status-on-pending'),
-        showNumberOfErrorOnCheckTitle: core.getInput('show-number-of-error-on-check-title'),
-        numberOfTestErrorToFailJob: core.getInput('number-of-test-error-to-fail-job'),
-        showGlobalSummaryReport: core.getInput('show-global-summary-report'),
-        ignoreNoReportFound: core.getInput('ignore-no-report-found'),
+        showNumberOfErrorOnCheckTitle: core.getBooleanInput('show-number-of-error-on-check-title'),
+        numberOfTestErrorToFailJob: Number(core.getInput('number-of-test-error-to-fail-job')),
+        showGlobalSummaryReport: core.getBooleanInput('show-global-summary-report'),
+        ignoreNoReportFound: core.getBooleanInput('ignore-no-report-found'),
         maxNumberOfAnnotations: Number(core.getInput('max-number-of-annotations'))
     };
 }
@@ -72,7 +72,7 @@ async function publishReports({ core, github, glob, fs, workspace = process.cwd(
 
     const reportFiles = await globber.glob();
     if (reportFiles.length === 0) {
-        if (inputs.ignoreNoReportFound === 'false') {
+        if (!inputs.ignoreNoReportFound) {
             core.setFailed(`No file matching "${inputs.inputPath}" was found in the project.`);
         } else {
             core.info(`No file matching "${inputs.inputPath}" was found in the project.`);

@@ -53,7 +53,7 @@ function listStepsToAnnotate(reportResult, { annotationStatusOnError, annotation
 // annotations over the maximum are not built, as resolving their path is costly
 async function buildAnnotations(reportResult, inputs, maxNumberOfAnnotations, resolvePath) {
     const steps = listStepsToAnnotate(reportResult, inputs);
-    const fileReports = inputs.showGlobalSummaryReport === 'true' ? reportResult.listAllScenarioByFile : [];
+    const fileReports = inputs.showGlobalSummaryReport ? reportResult.listAllScenarioByFile : [];
     const sentSteps = steps.slice(0, maxNumberOfAnnotations);
     const sentFileReports = fileReports.slice(0, maxNumberOfAnnotations - sentSteps.length);
 

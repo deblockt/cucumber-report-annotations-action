@@ -60481,7 +60481,7 @@ function listStepsToAnnotate(reportResult, { annotationStatusOnError, annotation
 // annotations over the maximum are not built, as resolving their path is costly
 async function buildAnnotations(reportResult, inputs, maxNumberOfAnnotations, resolvePath) {
     const steps = listStepsToAnnotate(reportResult, inputs);
-    const fileReports = inputs.showGlobalSummaryReport === 'true' ? reportResult.listAllScenarioByFile : [];
+    const fileReports = inputs.showGlobalSummaryReport ? reportResult.listAllScenarioByFile : [];
     const sentSteps = steps.slice(0, maxNumberOfAnnotations);
     const sentFileReports = fileReports.slice(0, maxNumberOfAnnotations - sentSteps.length);
 
@@ -60509,7 +60509,7 @@ const MAX_ANNOTATIONS_PER_REQUEST = 50;
 
 function buildCheckTitle(globalInformation, { checkName, showNumberOfErrorOnCheckTitle }) {
     const failed = globalInformation.failedScenarioNumber;
-    return showNumberOfErrorOnCheckTitle == 'true' && failed > 0
+    return showNumberOfErrorOnCheckTitle && failed > 0
         ? `${checkName} (${failed} error${failed > 1 ? 's' : ''})`
         : checkName;
 }
@@ -60554,7 +60554,7 @@ function buildCheckRequests({ context, inputs, globalInformation, summary, annot
 }
 
 function shouldFailJob(errorCount, { numberOfTestErrorToFailJob }) {
-    return numberOfTestErrorToFailJob != -1 && errorCount >= numberOfTestErrorToFailJob;
+    return numberOfTestErrorToFailJob !== -1 && errorCount >= numberOfTestErrorToFailJob;
 }
 
 module.exports = {
@@ -60645,10 +60645,10 @@ function readInputs(core) {
         annotationStatusOnError: core.getInput('annotation-status-on-error'),
         annotationStatusOnUndefined: core.getInput('annotation-status-on-undefined'),
         annotationStatusOnPending: core.getInput('annotation-status-on-pending'),
-        showNumberOfErrorOnCheckTitle: core.getInput('show-number-of-error-on-check-title'),
-        numberOfTestErrorToFailJob: core.getInput('number-of-test-error-to-fail-job'),
-        showGlobalSummaryReport: core.getInput('show-global-summary-report'),
-        ignoreNoReportFound: core.getInput('ignore-no-report-found'),
+        showNumberOfErrorOnCheckTitle: core.getBooleanInput('show-number-of-error-on-check-title'),
+        numberOfTestErrorToFailJob: Number(core.getInput('number-of-test-error-to-fail-job')),
+        showGlobalSummaryReport: core.getBooleanInput('show-global-summary-report'),
+        ignoreNoReportFound: core.getBooleanInput('ignore-no-report-found'),
         maxNumberOfAnnotations: Number(core.getInput('max-number-of-annotations'))
     };
 }
@@ -60700,7 +60700,7 @@ async function publishReports({ core, github, glob, fs, workspace = process.cwd(
 
     const reportFiles = await globber.glob();
     if (reportFiles.length === 0) {
-        if (inputs.ignoreNoReportFound === 'false') {
+        if (!inputs.ignoreNoReportFound) {
             core.setFailed(`No file matching "${inputs.inputPath}" was found in the project.`);
         } else {
             core.info(`No file matching "${inputs.inputPath}" was found in the project.`);
@@ -60989,9 +60989,7 @@ function buildStepData(fileReport, scenario, getStepsFunction) {
 /***/ }),
 
 /***/ 9189:
-/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
-
-const core = __nccwpck_require__(7484);
+/***/ ((module) => {
 
 const EMPTY_GLOBAL_INFO = {
     scenarioNumber: 0,

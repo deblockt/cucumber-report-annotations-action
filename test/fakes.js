@@ -8,6 +8,13 @@ function fakeCore(inputs = {}) {
         warnings: [],
         summaryHeadings: [],
         getInput: name => inputs[name] || '',
+        // same rules as @actions/core
+        getBooleanInput(name) {
+            const value = core.getInput(name);
+            if (['true', 'True', 'TRUE'].includes(value)) return true;
+            if (['false', 'False', 'FALSE'].includes(value)) return false;
+            throw new TypeError(`Input does not meet YAML 1.2 "Core Schema" specification: ${name}`);
+        },
         info() {},
         debug() {},
         warning: message => core.warnings.push(message),
