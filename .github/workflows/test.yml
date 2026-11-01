@@ -19,136 +19,103 @@ jobs:
           access-token: ${{ secrets.GITHUB_TOKEN }}
           path: "**/cucumber-report.json" # This committed report should be a success
 
-  ubuntu-action-tests:
+  prepare:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        extension: ["json", "ndjson"]
+    outputs:
+      cases: ${{ steps.cases.outputs.cases }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
       - run: npm ci
-      - run: npm run cucumber || true
-      - run: npm run cucumber-ok || true
-      - run: npm run cucumber-undefined || true
-      - run: npm run cucumber-non-failed || true
-      - run: npm run cucumber-empty || true
-      - uses: ./
-        name: "fail because of error"
+      - name: Generate cucumber reports
+        # language=bash
+        run: |
+          npm run cucumber || true
+          npm run cucumber-ok || true
+          npm run cucumber-non-failed || true
+          npm run cucumber-empty || true
+      - uses: actions/upload-artifact@v4
         with:
-          name: "${{ matrix.extension }}: failed cucumber report"
-          access-token: ${{ secrets.GITHUB_TOKEN }}
-          path: "**/cucumber-report.${{ matrix.extension }}"
-      - uses: ./
-        name: "fail because of error (without number of error)"
+          name: cucumber-reports
+          path: |
+            cucumber-report*.json
+            cucumber-report*.ndjson
+          if-no-files-found: error
+      - name: Build the test cases matrix from test/e2e/cases.yml
+        id: cases
+        run: npx tsx test/e2e/write-matrix.ts
+
+  # runs the action once per case of test/e2e/cases.yml
+  action-test:
+    name: "e2e - ${{ matrix.case.checkName }}"
+    needs: prepare
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        case: ${{ fromJSON(needs.prepare.outputs.cases) }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Remove the committed report, replaced by the generated one
+        run: rm cucumber-report.json
+      - uses: actions/download-artifact@v4
         with:
-          name: "${{ matrix.extension }}:  failed (no number of error)"
-          access-token: ${{ secrets.GITHUB_TOKEN }}
-          path: "**/cucumber-report.${{ matrix.extension }}"
-          show-number-of-error-on-check-title: false
+          name: cucumber-reports
+      # each action.yml input must be listed here, test/e2e/cases.ts checks it
       - uses: ./
-        name: "fail because of error with all annotation"
-        with:
-          name: "${{ matrix.extension }}: failed with all annotation"
-          access-token: ${{ secrets.GITHUB_TOKEN }}
-          path: "**/cucumber-report.${{ matrix.extension }}"
-          show-number-of-error-on-check-title: false
-          annotation-status-on-undefined: notice
-          annotation-status-on-pending: notice
-      - uses: ./
-        name: "fail because of undefined test"
-        with:
-          name: "${{ matrix.extension }}: failed because of undefined test"
-          access-token: ${{ secrets.GITHUB_TOKEN }}
-          path: "**/cucumber-report-non-failed.${{ matrix.extension }}"
-          check-status-on-undefined: "failure"
-          annotation-status-on-undefined: "failure"
-      - uses: ./
-        name: "fail because of pending test"
-        with:
-          name: "${{ matrix.extension }}: failed because of pending test"
-          access-token: ${{ secrets.GITHUB_TOKEN }}
-          path: "**/cucumber-report-non-failed.${{ matrix.extension }}"
-          check-status-on-pending: "failure"
-          annotation-status-on-pending: "failure"
-      - uses: ./
-        name: "neutral because of error"
-        with:
-          name: "${{ matrix.extension }}: neutral cucumber report"
-          access-token: ${{ secrets.GITHUB_TOKEN }}
-          path: "**/cucumber-report.${{ matrix.extension }}"
-          check-status-on-error: 'neutral'
-          annotation-status-on-error: 'warning'
-      - uses: ./
-        name: "sucess because all is ok"
-        with:
-          name: "${{ matrix.extension }}: success cucumber report"
-          access-token: ${{ secrets.GITHUB_TOKEN }}
-          path: "**/cucumber-report-ok.${{ matrix.extension }}"
-          check-status-on-error: 'neutral'
-          annotation-status-on-error: 'warning'
-      - uses: ./
-        id: success-with-empty-cucumber-report
-        name: "success with empty cucumber report"
-        with:
-          name: "${{ matrix.extension }}: success empty report"
-          access-token: ${{ secrets.GITHUB_TOKEN }}
-          path: "**/cucumber-report-empty.${{ matrix.extension }}"
-      - uses: ./
-        name: "job with summary"
-        with:
-          name: "${{ matrix.extension }}: job with summary"
-          access-token: ${{ secrets.GITHUB_TOKEN }}
-          path: "**/cucumber-report.${{ matrix.extension }}"
-          show-global-summary-report: 'true'
-      - uses: ./
-        name: "job with summary and scenarios excluded by tag filter"
-        with:
-          name: "${{ matrix.extension }}: job with summary and tag filter"
-          access-token: ${{ secrets.GITHUB_TOKEN }}
-          path: "**/cucumber-report-ok.${{ matrix.extension }}"
-          show-global-summary-report: 'true'
-      - id: check-output
-        name: "check output for cucumber-report-empty"
-        if: steps.success-with-empty-cucumber-report.outputs.cucumber-report-empty_failed_scenarios != 0
-        run: exit 1
-      - uses: ./
-        id: set-fail-file-not-found
+        id: action
         continue-on-error: true
-        name: "fail because no report found"
         with:
-          path: "**/report-not-found.json"
           access-token: ${{ secrets.GITHUB_TOKEN }}
-      - uses: ./
-        id: set-success-when-no-file-found
-        continue-on-error: true
-        name: "success because ignore no file found"
+          name: ${{ matrix.case.inputs['name'] }}
+          path: ${{ matrix.case.inputs['path'] }}
+          check-status-on-error: ${{ matrix.case.inputs['check-status-on-error'] }}
+          check-status-on-undefined: ${{ matrix.case.inputs['check-status-on-undefined'] }}
+          check-status-on-pending: ${{ matrix.case.inputs['check-status-on-pending'] }}
+          annotation-status-on-error: ${{ matrix.case.inputs['annotation-status-on-error'] }}
+          annotation-status-on-undefined: ${{ matrix.case.inputs['annotation-status-on-undefined'] }}
+          annotation-status-on-pending: ${{ matrix.case.inputs['annotation-status-on-pending'] }}
+          show-number-of-error-on-check-title: ${{ matrix.case.inputs['show-number-of-error-on-check-title'] }}
+          show-global-summary-report: ${{ matrix.case.inputs['show-global-summary-report'] }}
+          number-of-test-error-to-fail-job: ${{ matrix.case.inputs['number-of-test-error-to-fail-job'] }}
+          max-number-of-annotations: ${{ matrix.case.inputs['max-number-of-annotations'] }}
+          ignore-no-report-found: ${{ matrix.case.inputs['ignore-no-report-found'] }}
+      - name: Check the action outcome and outputs
+        uses: actions/github-script@v7
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+          OUTPUTS: ${{ toJSON(steps.action.outputs) }}
+          EXPECTED: ${{ toJSON(matrix.case.expect) }}
         with:
-          path: "**/report-not-found.json"
-          access-token: ${{ secrets.GITHUB_TOKEN }}
-          ignore-no-report-found: 'true'
-      - name: 'check that set-fail-file-not-found outcome is failed'
-        if: steps.set-fail-file-not-found.outcome == 'failure'
-        run: exit 0
-      - name: 'check that set-fail-file-not-found outcome is failed'
-        if: steps.set-fail-file-not-found.outcome != 'failure'
-        run: exit 1
-      - uses: ./
-        id: job-failed
-        continue-on-error: true
-        name: "fail job due to failed test"
+          script: |
+            const expected = JSON.parse(process.env.EXPECTED);
+            const outputs = JSON.parse(process.env.OUTPUTS);
+            const errors = [];
+            if (process.env.OUTCOME !== expected.outcome) {
+              errors.push(`expected outcome ${expected.outcome}, got ${process.env.OUTCOME}`);
+            }
+            for (const [name, value] of Object.entries(expected.outputs)) {
+              if (outputs[name] !== value) {
+                errors.push(`expected output ${name}=${value}, got ${outputs[name]}`);
+              }
+            }
+            if (errors.length) core.setFailed(errors.join('\n'));
+
+  verify-expected-checks:
+    needs: [direct-from-repository-test, action-test]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          name: "${{ matrix.extension }}: fail job due to failed test"
-          access-token: ${{ secrets.GITHUB_TOKEN }}
-          path: "**/cucumber-report-non-failed.${{ matrix.extension }}"
-          check-status-on-pending: "failure"
-          annotation-status-on-pending: "failure"
-          number-of-test-error-to-fail-job: 1
-      - name: 'check that job-failed outcome is failed'
-        if: steps.job-failed.outcome == 'failure'
-        run: exit 0
-      - name: 'check that job-failed outcome is failed'
-        if: steps.job-failed.outcome != 'failure'
-        run: exit 1
+          node-version: '24'
+      - run: npm ci
+      - name: Check the check runs, then neutralize the expected failures
+        run: npx tsx test/e2e/verify-checks.ts
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

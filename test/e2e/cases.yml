@@ -1,0 +1,147 @@
+# End-to-end test cases, run by the `action-test` job of .github/workflows/test.yml.
+#
+# Each case runs the real action (`uses: ./`) once per extension, on a report generated
+# by the cucumber npm scripts. Then the `verify-expected-checks` job checks the created check runs.
+#
+# reports: the reports read by the cases, with the summary expected on their check run
+# cases:
+#   name:       check run name, prefixed by the extension ("json: <name>")
+#   report:     key of the report to read, or `path` to use a custom glob
+#   extensions: extensions to run the case with (default: all the `extensions`)
+#   inputs:     action inputs, the other ones get their action.yml default value
+#   expect:
+#     outcome:    expected outcome of the action step: success or failure (default: success)
+#     conclusion: expected conclusion of the check run (when omitted, no check run is expected)
+#     outputs:    expected action outputs
+# additionalChecks: check runs created by other jobs of the workflow
+
+extensions: [json, ndjson]
+
+reports:
+  committed:
+    file: cucumber-report
+    summary:
+      - 1 Scenarios (1 passed)
+      - 1 Steps (1 passed)
+  full:
+    file: cucumber-report
+    summary:
+      - 7 Scenarios (2 failed, 3 undefined, 1 pending, 1 passed)
+      - 9 Steps (2 failed, 3 undefined, 1 skipped, 1 pending, 2 passed)
+  nonFailed:
+    file: cucumber-report-non-failed
+    summary:
+      - 3 Scenarios (1 undefined, 1 pending, 1 passed)
+      - 4 Steps (1 undefined, 1 pending, 2 passed)
+  ok:
+    file: cucumber-report-ok
+    summary:
+      - 2 Scenarios (1 undefined, 1 passed)
+      - 3 Steps (1 undefined, 2 passed)
+  empty:
+    file: cucumber-report-empty
+    summary:
+      - 0 Scenarios ()
+      - 0 Steps ()
+
+cases:
+  - name: failed cucumber report
+    report: full
+    expect:
+      conclusion: failure
+
+  - name: failed (no number of error)
+    report: full
+    inputs:
+      show-number-of-error-on-check-title: false
+    expect:
+      conclusion: failure
+
+  - name: failed with all annotation
+    report: full
+    inputs:
+      show-number-of-error-on-check-title: false
+      annotation-status-on-undefined: notice
+      annotation-status-on-pending: notice
+    expect:
+      conclusion: failure
+
+  - name: failed because of undefined test
+    report: nonFailed
+    inputs:
+      check-status-on-undefined: failure
+      annotation-status-on-undefined: failure
+    expect:
+      conclusion: failure
+
+  - name: failed because of pending test
+    report: nonFailed
+    inputs:
+      check-status-on-pending: failure
+      annotation-status-on-pending: failure
+    expect:
+      conclusion: failure
+
+  - name: neutral cucumber report
+    report: full
+    inputs:
+      check-status-on-error: neutral
+      annotation-status-on-error: warning
+    expect:
+      conclusion: neutral
+
+  - name: success cucumber report
+    report: ok
+    inputs:
+      check-status-on-error: neutral
+      annotation-status-on-error: warning
+    expect:
+      conclusion: success
+
+  - name: success empty report
+    report: empty
+    expect:
+      conclusion: success
+      outputs:
+        cucumber-report-empty_failed_scenarios: 0
+
+  - name: job with summary
+    report: full
+    inputs:
+      show-global-summary-report: true
+    expect:
+      conclusion: failure
+
+  - name: job with summary and tag filter
+    report: ok
+    inputs:
+      show-global-summary-report: true
+    expect:
+      conclusion: success
+
+  - name: fail job due to failed test
+    report: nonFailed
+    inputs:
+      check-status-on-pending: failure
+      annotation-status-on-pending: failure
+      number-of-test-error-to-fail-job: 1
+    expect:
+      outcome: failure
+      conclusion: failure
+
+  - name: fail because no report found
+    path: "**/report-not-found.json"
+    extensions: [json]
+    expect:
+      outcome: failure
+
+  - name: success because ignore no file found
+    path: "**/report-not-found.json"
+    extensions: [json]
+    inputs:
+      ignore-no-report-found: true
+
+additionalChecks:
+  - name: Successful cucumber report direct from repository
+    report: committed
+    conclusion: success
