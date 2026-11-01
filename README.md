@@ -41,7 +41,7 @@ All parameters in this action are optional, allowing flexibility in configuratio
 
 ## Outputs
 
-The following variables are available as output (with the JSON file name used as a base, spaces replaced by underscores, and without the `.json` extension):
+The following variables are available as output (with the report file name used as a base, spaces replaced by underscores, and without the `.json` or `.ndjson` extension):
 
 - `${output}_failed_scenarios`: Number of failed scenarios.
 - `${output}_undefined_scenarios`: Number of undefined scenarios.
