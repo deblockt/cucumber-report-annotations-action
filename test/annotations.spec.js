@@ -21,7 +21,7 @@ const allAnnotationsInputs = {
     annotationStatusOnError: 'failure',
     annotationStatusOnUndefined: 'warning',
     annotationStatusOnPending: 'notice',
-    showGlobalSummaryReport: 'true'
+    showGlobalSummaryReport: true
 };
 
 const resolvePath = async file => 'features/' + file;
@@ -47,7 +47,7 @@ describe('annotations', () => {
         });
 
         it('should annotate undefined and pending steps when their status is set', async () => {
-            const { annotations } = await buildAnnotations(reportResult, { ...allAnnotationsInputs, showGlobalSummaryReport: 'false' }, 50, resolvePath);
+            const { annotations } = await buildAnnotations(reportResult, { ...allAnnotationsInputs, showGlobalSummaryReport: false }, 50, resolvePath);
             assert.deepStrictEqual(
                 annotations.map(({ path, start_line, annotation_level, title }) => ({ path, start_line, annotation_level, title })),
                 [
@@ -71,7 +71,7 @@ describe('annotations', () => {
         });
 
         it('should list the scenarios of each feature after the steps for the global summary report', async () => {
-            const { annotations } = await buildAnnotations(reportResult, { annotationStatusOnError: 'failure', showGlobalSummaryReport: 'true' }, 50, resolvePath);
+            const { annotations } = await buildAnnotations(reportResult, { annotationStatusOnError: 'failure', showGlobalSummaryReport: true }, 50, resolvePath);
             assert.deepStrictEqual(annotations[1], {
                 path: 'features/a.feature',
                 start_line: 0,

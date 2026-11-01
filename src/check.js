@@ -3,7 +3,7 @@ const MAX_ANNOTATIONS_PER_REQUEST = 50;
 
 function buildCheckTitle(globalInformation, { checkName, showNumberOfErrorOnCheckTitle }) {
     const failed = globalInformation.failedScenarioNumber;
-    return showNumberOfErrorOnCheckTitle == 'true' && failed > 0
+    return showNumberOfErrorOnCheckTitle && failed > 0
         ? `${checkName} (${failed} error${failed > 1 ? 's' : ''})`
         : checkName;
 }
@@ -48,7 +48,7 @@ function buildCheckRequests({ context, inputs, globalInformation, summary, annot
 }
 
 function shouldFailJob(errorCount, { numberOfTestErrorToFailJob }) {
-    return numberOfTestErrorToFailJob != -1 && errorCount >= numberOfTestErrorToFailJob;
+    return numberOfTestErrorToFailJob !== -1 && errorCount >= numberOfTestErrorToFailJob;
 }
 
 module.exports = {

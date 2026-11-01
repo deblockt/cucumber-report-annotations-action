@@ -1,5 +1,3 @@
-const core = require('@actions/core');
-
 const EMPTY_GLOBAL_INFO = {
     scenarioNumber: 0,
     failedScenarioNumber: 0,
