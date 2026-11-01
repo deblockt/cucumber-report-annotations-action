@@ -1,3 +1,5 @@
+const path = require('path');
+
 function memoize(fn) {
     const cache = {};
 
@@ -9,13 +11,17 @@ function memoize(fn) {
     }
 }
 
-function toRelativePath(featureFile, repoName) {
-    const indexOfRepoName = featureFile.indexOf(repoName);
-    return featureFile.substring(indexOfRepoName + repoName.length * 2 + 2);
+// annotation paths are relative to the repository root and use / as separator
+function toRelativePath(featureFile, workspace) {
+    return path.relative(workspace, featureFile).split(path.sep).join('/');
+}
+
+function isInNodeModules(relativePath) {
+    return relativePath.split('/').includes('node_modules');
 }
 
 // returns a memoized function resolving a feature file of a report to its path in the repository
-function createFileMatcher({ core, glob, repoName }) {
+function createFileMatcher({ core, glob, workspace }) {
     async function findBestFileMatch(file) {
         let searchFile = file;
         if (searchFile.startsWith('classpath:')) {
@@ -24,12 +30,12 @@ function createFileMatcher({ core, glob, repoName }) {
         const globber = await glob.create('**/' + searchFile, {
             followSymbolicLinks: false,
         });
-        const files = await globber.glob()
+        const files = (await globber.glob())
+            .map(featureFile => toRelativePath(featureFile, workspace))
+            .filter(relativePath => !isInNodeModules(relativePath));
         if (files.length > 0) {
-            const filePathWithoutWorkspace = toRelativePath(files[0], repoName);
-
-            core.debug(`Best path found for ${file} is ${filePathWithoutWorkspace}.`);
-            return filePathWithoutWorkspace;
+            core.debug(`Best path found for ${file} is ${files[0]}.`);
+            return files[0];
         }
 
         core.warning(`No file matching "${file}" was found in the project.`);

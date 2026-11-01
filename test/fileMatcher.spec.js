@@ -2,10 +2,10 @@ const assert = require('assert');
 const { createFileMatcher } = require('../src/fileMatcher');
 const { fakeCore, fakeGlob } = require('./fakes');
 
-function matcher({ files, repoName = 'my-repo', workspace = '/home/runner/work/my-repo/my-repo', pattern = '**/features/a.feature' }) {
+function matcher({ files, workspace = '/home/runner/work/my-repo/my-repo', pattern = '**/features/a.feature' }) {
     const core = fakeCore();
     const glob = fakeGlob({ [pattern]: files });
-    return { core, glob, resolvePath: createFileMatcher({ core, glob, repoName, workspace }) };
+    return { core, glob, resolvePath: createFileMatcher({ core, glob, workspace }) };
 }
 
 describe('fileMatcher', () => {
@@ -33,7 +33,7 @@ describe('fileMatcher', () => {
         assert.strictEqual(glob.patterns.length, 1);
     });
 
-    it('[bug 5] should support a workspace that is not <repo>/<repo>', async () => {
+    it('should support a workspace that is not <repo>/<repo>', async () => {
         const { resolvePath } = matcher({
             workspace: '/builds/my-repo',
             files: ['/builds/my-repo/features/a.feature']
@@ -41,16 +41,15 @@ describe('fileMatcher', () => {
         assert.strictEqual(await resolvePath('features/a.feature'), 'features/a.feature');
     });
 
-    it('[bug 5] should support a repository name found earlier in the path', async () => {
+    it('should support a repository name found earlier in the path', async () => {
         const { resolvePath } = matcher({
-            repoName: 'app',
             workspace: '/home/app/work/app/app',
             files: ['/home/app/work/app/app/features/a.feature']
         });
         assert.strictEqual(await resolvePath('features/a.feature'), 'features/a.feature');
     });
 
-    it('[bug 5] should ignore the feature files of node_modules', async () => {
+    it('should ignore the feature files of node_modules', async () => {
         const { resolvePath } = matcher({
             files: [
                 '/home/runner/work/my-repo/my-repo/node_modules/a-lib/features/a.feature',
