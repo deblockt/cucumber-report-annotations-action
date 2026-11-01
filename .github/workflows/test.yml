@@ -152,3 +152,42 @@ jobs:
       - name: 'check that job-failed outcome is failed'
         if: steps.job-failed.outcome != 'failure'
         run: exit 1
+
+  verify-expected-checks:
+    needs: [direct-from-repository-test, ubuntu-action-tests]
+    runs-on: ubuntu-latest
+    permissions:
+      checks: write
+    steps:
+      - name: "check conclusions and neutralize expected failures"
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const ref = context.payload.pull_request?.head.sha ?? context.sha;
+            const expected = { 'Successful cucumber report direct from repository': 'success' };
+            for (const ext of ['json', 'ndjson']) {
+              Object.assign(expected, {
+                [`${ext}: failed cucumber report`]: 'failure',
+                [`${ext}:  failed (no number of error)`]: 'failure',
+                [`${ext}: failed with all annotation`]: 'failure',
+                [`${ext}: failed because of undefined test`]: 'failure',
+                [`${ext}: failed because of pending test`]: 'failure',
+                [`${ext}: neutral cucumber report`]: 'neutral',
+                [`${ext}: success cucumber report`]: 'success',
+                [`${ext}: success empty report`]: 'success',
+                [`${ext}: job with summary`]: 'failure',
+                [`${ext}: job with summary and tag filter`]: 'success',
+                [`${ext}: fail job due to failed test`]: 'failure',
+              });
+            }
+            const errors = [];
+            for (const [name, conclusion] of Object.entries(expected)) {
+              const { data } = await github.rest.checks.listForRef({ ...context.repo, ref, check_name: name, filter: 'latest' });
+              const run = data.check_runs[0];
+              if (!run) { errors.push(`${name}: check not found`); continue; }
+              if (run.conclusion !== conclusion) { errors.push(`${name}: expected ${conclusion}, got ${run.conclusion}`); continue; }
+              if (conclusion === 'failure') {
+                await github.rest.checks.update({ ...context.repo, check_run_id: run.id, conclusion: 'neutral' });
+              }
+            }
+            if (errors.length) core.setFailed(errors.join('\n'));
