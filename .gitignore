@@ -22,6 +22,3 @@ pids
 # IDE
 *.iml
 .idea/
-
-# Compiled sources, bundled into dist/ by ncc
-lib/
