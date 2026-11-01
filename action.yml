@@ -26,33 +26,33 @@ inputs:
     default: 'success'
   annotation-status-on-error:
     description: "the annotation status on error. Can be 'notice', 'warning', 'failure'"
-    require: true
+    required: true
     default: 'failure'
   annotation-status-on-undefined:
     description: "the annotation status on undefined steps. Can be 'notice', 'warning', 'failure'. if this property is not set, no annotation will be generated for undefined steps"
-    require: false
+    required: false
   annotation-status-on-pending:
     description: "the annotation status on pending steps. Can be 'notice', 'warning', 'failure'. if this property is not set, no annotation will be generated for pending steps"
-    require: false
+    required: false
   show-number-of-error-on-check-title:
     description: "if it is set to true, the number of errors will be indicated on the check title (visible on the pr check)"
-    require: true
+    required: true
     default: 'true'
   show-global-summary-report:
     description: "if it is set to true, a full summary report will be display for each feature file."
-    require: true
+    required: true
     default: 'false'
   number-of-test-error-to-fail-job:
     description: "indicate the number of test in error to fail the build. If the value is -1 this action will never fail the build."
-    require: true
+    required: true
     default: -1
   ignore-no-report-found:
     description: "if it is set to true, the action will not fail if no cucumber report file is found. If it is set to false, the action will fail if no cucumber report file is found."
-    require: true
+    required: true
     default: 'false'
   name:
     description: "the name of the check"
-    require: true
+    required: true
     default: 'Cucumber report'
 
 runs:
