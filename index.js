@@ -4,4 +4,4 @@ const glob = require('@actions/glob');
 const fs = require('fs');
 const { run } = require('./src/main');
 
-run({ core, github, glob, fs });
+run({ core, github, glob, fs, workspace: process.env.GITHUB_WORKSPACE });

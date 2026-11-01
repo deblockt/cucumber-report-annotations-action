@@ -24,9 +24,9 @@ function readInputs(core) {
     };
 }
 
-async function run({ core, github, glob, fs }) {
+async function run({ core, github, glob, fs, workspace = process.cwd() }) {
     const inputs = readInputs(core);
-    const resolvePath = createFileMatcher({ core, glob, repoName: github.context.repo.repo });
+    const resolvePath = createFileMatcher({ core, glob, workspace });
     const globber = await glob.create(inputs.inputPath, {
         followSymbolicLinks: false,
     });

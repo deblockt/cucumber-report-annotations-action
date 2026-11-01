@@ -60547,7 +60547,9 @@ module.exports = {
 /***/ }),
 
 /***/ 4145:
-/***/ ((module) => {
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+const path = __nccwpck_require__(6928);
 
 function memoize(fn) {
     const cache = {};
@@ -60560,13 +60562,17 @@ function memoize(fn) {
     }
 }
 
-function toRelativePath(featureFile, repoName) {
-    const indexOfRepoName = featureFile.indexOf(repoName);
-    return featureFile.substring(indexOfRepoName + repoName.length * 2 + 2);
+// annotation paths are relative to the repository root and use / as separator
+function toRelativePath(featureFile, workspace) {
+    return path.relative(workspace, featureFile).split(path.sep).join('/');
+}
+
+function isInNodeModules(relativePath) {
+    return relativePath.split('/').includes('node_modules');
 }
 
 // returns a memoized function resolving a feature file of a report to its path in the repository
-function createFileMatcher({ core, glob, repoName }) {
+function createFileMatcher({ core, glob, workspace }) {
     async function findBestFileMatch(file) {
         let searchFile = file;
         if (searchFile.startsWith('classpath:')) {
@@ -60575,12 +60581,12 @@ function createFileMatcher({ core, glob, repoName }) {
         const globber = await glob.create('**/' + searchFile, {
             followSymbolicLinks: false,
         });
-        const files = await globber.glob()
+        const files = (await globber.glob())
+            .map(featureFile => toRelativePath(featureFile, workspace))
+            .filter(relativePath => !isInNodeModules(relativePath));
         if (files.length > 0) {
-            const filePathWithoutWorkspace = toRelativePath(files[0], repoName);
-
-            core.debug(`Best path found for ${file} is ${filePathWithoutWorkspace}.`);
-            return filePathWithoutWorkspace;
+            core.debug(`Best path found for ${file} is ${files[0]}.`);
+            return files[0];
         }
 
         core.warning(`No file matching "${file}" was found in the project.`);
@@ -60625,9 +60631,9 @@ function readInputs(core) {
     };
 }
 
-async function run({ core, github, glob, fs }) {
+async function run({ core, github, glob, fs, workspace = process.cwd() }) {
     const inputs = readInputs(core);
-    const resolvePath = createFileMatcher({ core, glob, repoName: github.context.repo.repo });
+    const resolvePath = createFileMatcher({ core, glob, workspace });
     const globber = await glob.create(inputs.inputPath, {
         followSymbolicLinks: false,
     });
@@ -67690,7 +67696,7 @@ const glob = __nccwpck_require__(7206);
 const fs = __nccwpck_require__(9896);
 const { run } = __nccwpck_require__(7936);
 
-run({ core, github, glob, fs });
+run({ core, github, glob, fs, workspace: process.env.GITHUB_WORKSPACE });
 
 module.exports = __webpack_exports__;
 /******/ })()
