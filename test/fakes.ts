@@ -1,8 +1,36 @@
-const fs = require('fs');
+import * as fs from 'fs';
+import type {
+    Annotation,
+    CheckCreateRequest,
+    CheckRunUpdateRequest,
+    Core,
+    FileSystem,
+    GitHub,
+    GitHubContext,
+    Glob,
+    JobSummary
+} from '../src/types';
+
+export interface FakeCore extends Core {
+    outputs: Record<string, number>;
+    failures: string[];
+    warnings: string[];
+    summaryHeadings: { text: string, level?: number | string }[];
+}
 
 // fake of @actions/core recording the calls made by the action
-function fakeCore(inputs = {}) {
-    const core = {
+export function fakeCore(inputs: Record<string, string> = {}): FakeCore {
+    const summary: JobSummary = {
+        addHeading(text, level) {
+            core.summaryHeadings.push({ text, level });
+            return summary;
+        },
+        addRaw() {
+            return summary;
+        },
+        write: async () => summary
+    };
+    const core: FakeCore = {
         outputs: {},
         failures: [],
         warnings: [],
@@ -17,26 +45,23 @@ function fakeCore(inputs = {}) {
         },
         info() {},
         debug() {},
-        warning: message => core.warnings.push(message),
-        setFailed: message => core.failures.push(message),
+        warning: message => { core.warnings.push(message); },
+        setFailed: message => { core.failures.push(message); },
         setOutput: (name, value) => { core.outputs[name] = value; },
-        summary: {
-            addHeading(text, level) {
-                core.summaryHeadings.push({ text, level });
-                return this;
-            },
-            addRaw() {
-                return this;
-            },
-            write: async () => {}
-        }
+        summary
     };
     return core;
 }
 
+export interface FakeGitHub extends GitHub {
+    tokens: string[];
+    createRequests: CheckCreateRequest[];
+    updateRequests: CheckRunUpdateRequest[];
+}
+
 // fake of @actions/github recording the check requests
-function fakeGithub({ payload = {} } = {}) {
-    const github = {
+export function fakeGithub({ payload = {} }: { payload?: GitHubContext['payload'] } = {}): FakeGitHub {
+    const github: FakeGitHub = {
         tokens: [],
         createRequests: [],
         updateRequests: [],
@@ -66,9 +91,13 @@ function fakeGithub({ payload = {} } = {}) {
     return github;
 }
 
+export interface FakeGlob extends Glob {
+    patterns: string[];
+}
+
 // fake of @actions/glob returning the files configured for each pattern
-function fakeGlob(filesByPattern = {}) {
-    const glob = {
+export function fakeGlob(filesByPattern: Record<string, string[]> = {}): FakeGlob {
+    const glob: FakeGlob = {
         patterns: [],
         create: async pattern => {
             glob.patterns.push(pattern);
@@ -79,7 +108,7 @@ function fakeGlob(filesByPattern = {}) {
 }
 
 // fake of fs serving the given contents, and the real files otherwise
-function fakeFs(contentByFile = {}) {
+export function fakeFs(contentByFile: Record<string, string> = {}): FileSystem {
     return {
         promises: {
             readFile: async file => file in contentByFile ? contentByFile[file] : fs.promises.readFile(file)
@@ -88,7 +117,7 @@ function fakeFs(contentByFile = {}) {
 }
 
 // builds a cucumber json report with one failing scenario per entry
-function jsonReport(features) {
+export function jsonReport(features: { uri: string, scenarios: string[] }[]): string {
     return JSON.stringify(features.map(({ uri, scenarios }) => ({
         uri,
         name: uri,
@@ -101,10 +130,16 @@ function jsonReport(features) {
     })));
 }
 
-module.exports = {
-    fakeCore,
-    fakeGithub,
-    fakeGlob,
-    fakeFs,
-    jsonReport
-};
+// builds an annotation with the given title
+export function annotation(title: string): Annotation {
+    return {
+        path: 'a.feature',
+        start_line: 0,
+        end_line: 0,
+        start_column: 0,
+        end_column: 0,
+        annotation_level: 'failure',
+        title,
+        message: ''
+    };
+}

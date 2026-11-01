@@ -1,6 +1,974 @@
 require('./sourcemap-register.js');/******/ (() => { // webpackBootstrap
 /******/ 	var __webpack_modules__ = ({
 
+/***/ 8926:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.buildAnnotations = buildAnnotations;
+function emojiByStatus(status) {
+    switch (status) {
+        case 'success':
+            return '✅';
+        case 'failed':
+            return '❌';
+        case 'pending':
+            return '⌛';
+        default:
+            return '-';
+    }
+}
+async function buildStepAnnotation(cucumberError, status, errorType, resolvePath) {
+    return {
+        path: (await resolvePath(cucumberError.file)) || cucumberError.file,
+        start_line: cucumberError.line || 0,
+        end_line: cucumberError.line || 0,
+        start_column: 0,
+        end_column: 0,
+        annotation_level: status,
+        title: cucumberError.title + ' ' + errorType + '.',
+        message: 'Scenario: ' + cucumberError.title + '\nStep: ' + cucumberError.step + '\nError: \n' + cucumberError.error
+    };
+}
+async function buildReportDetailAnnotation(fileReport, resolvePath) {
+    const message = fileReport.scenarios
+        .map(scenario => `${emojiByStatus(scenario.status)} Scenario: ${scenario.name}`)
+        .join('\n');
+    return {
+        path: (await resolvePath(fileReport.file)) || fileReport.file,
+        start_line: 0,
+        end_line: 0,
+        start_column: 0,
+        end_column: 0,
+        annotation_level: 'notice',
+        title: `Feature: ${fileReport.name} Report`,
+        message
+    };
+}
+function listStepsToAnnotate(reportResult, { annotationStatusOnError, annotationStatusOnUndefined, annotationStatusOnPending }) {
+    const stepsWithType = (steps, status, errorType) => steps.map(step => ({ step, status, errorType }));
+    return [
+        ...stepsWithType(reportResult.failedSteps, annotationStatusOnError, 'Failed'),
+        ...(annotationStatusOnUndefined ? stepsWithType(reportResult.undefinedSteps, annotationStatusOnUndefined, 'Undefined') : []),
+        ...(annotationStatusOnPending ? stepsWithType(reportResult.pendingSteps, annotationStatusOnPending, 'Pending') : [])
+    ];
+}
+// annotations over the maximum are not built, as resolving their path is costly
+async function buildAnnotations(reportResult, inputs, maxNumberOfAnnotations, resolvePath) {
+    const steps = listStepsToAnnotate(reportResult, inputs);
+    const fileReports = inputs.showGlobalSummaryReport ? reportResult.listAllScenarioByFile : [];
+    const sentSteps = steps.slice(0, maxNumberOfAnnotations);
+    const sentFileReports = fileReports.slice(0, maxNumberOfAnnotations - sentSteps.length);
+    const annotations = await Promise.all([
+        ...sentSteps.map(({ step, status, errorType }) => buildStepAnnotation(step, status, errorType, resolvePath)),
+        ...sentFileReports.map(fileReport => buildReportDetailAnnotation(fileReport, resolvePath))
+    ]);
+    return {
+        annotations,
+        errorNumber: steps.length,
+        notSentNumber: steps.length + fileReports.length - annotations.length
+    };
+}
+
+
+/***/ }),
+
+/***/ 8504:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.buildCheckTitle = buildCheckTitle;
+exports.computeCheckStatus = computeCheckStatus;
+exports.buildCheckRequests = buildCheckRequests;
+exports.shouldFailJob = shouldFailJob;
+// the checks API accepts at most 50 annotations per request
+const MAX_ANNOTATIONS_PER_REQUEST = 50;
+function buildCheckTitle(globalInformation, { checkName, showNumberOfErrorOnCheckTitle }) {
+    const failed = globalInformation.failedScenarioNumber;
+    return showNumberOfErrorOnCheckTitle && failed > 0
+        ? `${checkName} (${failed} error${failed > 1 ? 's' : ''})`
+        : checkName;
+}
+function computeCheckStatus(globalInformation, { checkStatusOnError, checkStatusOnUndefined, checkStatusOnPending }) {
+    if (globalInformation.failedScenarioNumber > 0 && checkStatusOnError !== 'success') {
+        return checkStatusOnError;
+    }
+    if (globalInformation.undefinedStepsNumber > 0 && checkStatusOnUndefined !== 'success') {
+        return checkStatusOnUndefined;
+    }
+    if (globalInformation.pendingStepNumber > 0) {
+        return checkStatusOnPending;
+    }
+    return 'success';
+}
+function buildCheckRequests({ context, inputs, globalInformation, summary, annotations }) {
+    const pullRequest = context.payload.pull_request;
+    const output = {
+        title: buildCheckTitle(globalInformation, inputs),
+        summary
+    };
+    const updates = [];
+    for (let index = MAX_ANNOTATIONS_PER_REQUEST; index < annotations.length; index += MAX_ANNOTATIONS_PER_REQUEST) {
+        updates.push({
+            ...context.repo,
+            output: { ...output, annotations: annotations.slice(index, index + MAX_ANNOTATIONS_PER_REQUEST) }
+        });
+    }
+    return {
+        create: {
+            ...context.repo,
+            name: inputs.checkName,
+            head_sha: pullRequest?.head?.sha || context.sha,
+            status: 'completed',
+            conclusion: computeCheckStatus(globalInformation, inputs),
+            output: { ...output, annotations: annotations.slice(0, MAX_ANNOTATIONS_PER_REQUEST) }
+        },
+        updates
+    };
+}
+function shouldFailJob(errorCount, { numberOfTestErrorToFailJob }) {
+    return numberOfTestErrorToFailJob !== -1 && errorCount >= numberOfTestErrorToFailJob;
+}
+
+
+/***/ }),
+
+/***/ 5983:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.createFileMatcher = createFileMatcher;
+const path = __importStar(__nccwpck_require__(6928));
+// annotation paths are relative to the repository root and use / as separator
+function toRelativePath(featureFile, workspace) {
+    return path.relative(workspace, featureFile).split(path.sep).join('/');
+}
+function isInNodeModules(relativePath) {
+    return relativePath.split('/').includes('node_modules');
+}
+function findBestMatch(featureFiles, file) {
+    const searchFile = file.startsWith('classpath:') ? file.substring(10) : file;
+    return featureFiles.find(featureFile => featureFile === searchFile || featureFile.endsWith('/' + searchFile));
+}
+function createFileMatcher({ core, glob, workspace }) {
+    let featureFiles;
+    const warnedFiles = new Set();
+    async function listFeatureFiles() {
+        const globber = await glob.create('**/*.feature', {
+            followSymbolicLinks: false,
+        });
+        return (await globber.glob())
+            .map(featureFile => toRelativePath(featureFile, workspace))
+            .filter(relativePath => !isInNodeModules(relativePath));
+    }
+    return async (file) => {
+        featureFiles ??= listFeatureFiles();
+        const bestMatch = findBestMatch(await featureFiles, file);
+        if (bestMatch) {
+            core.debug(`Best path found for ${file} is ${bestMatch}.`);
+        }
+        else if (!warnedFiles.has(file)) {
+            warnedFiles.add(file);
+            core.warning(`No file matching "${file}" was found in the project.`);
+        }
+        return bestMatch;
+    };
+}
+
+
+/***/ }),
+
+/***/ 1188:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+const core = __importStar(__nccwpck_require__(7484));
+const github = __importStar(__nccwpck_require__(3228));
+const glob = __importStar(__nccwpck_require__(7206));
+const fs = __importStar(__nccwpck_require__(9896));
+const main_1 = __nccwpck_require__(5915);
+(0, main_1.run)({ core, github, glob, fs, workspace: process.env.GITHUB_WORKSPACE });
+
+
+/***/ }),
+
+/***/ 5915:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.run = run;
+const reportReaderJson = __importStar(__nccwpck_require__(5030));
+const reportReaderNdJson = __importStar(__nccwpck_require__(4208));
+const fileMatcher_1 = __nccwpck_require__(5983);
+const annotations_1 = __nccwpck_require__(8926);
+const outputs_1 = __nccwpck_require__(3914);
+const summary_1 = __nccwpck_require__(847);
+const check_1 = __nccwpck_require__(8504);
+function readInputs(core) {
+    return {
+        inputPath: core.getInput('path'),
+        checkName: core.getInput('name'),
+        accessToken: core.getInput('access-token'),
+        checkStatusOnError: core.getInput('check-status-on-error'),
+        checkStatusOnUndefined: core.getInput('check-status-on-undefined'),
+        checkStatusOnPending: core.getInput('check-status-on-pending'),
+        annotationStatusOnError: core.getInput('annotation-status-on-error'),
+        annotationStatusOnUndefined: core.getInput('annotation-status-on-undefined'),
+        annotationStatusOnPending: core.getInput('annotation-status-on-pending'),
+        showNumberOfErrorOnCheckTitle: core.getBooleanInput('show-number-of-error-on-check-title'),
+        numberOfTestErrorToFailJob: Number(core.getInput('number-of-test-error-to-fail-job')),
+        showGlobalSummaryReport: core.getBooleanInput('show-global-summary-report'),
+        ignoreNoReportFound: core.getBooleanInput('ignore-no-report-found'),
+        maxNumberOfAnnotations: Number(core.getInput('max-number-of-annotations'))
+    };
+}
+async function publishReportFile({ core, github, fs, octokit, inputs, resolvePath }, cucumberReportFile, remainingAnnotations) {
+    const reportResultString = await fs.promises.readFile(cucumberReportFile);
+    const reportReader = cucumberReportFile.endsWith('.json') ? reportReaderJson : reportReaderNdJson;
+    const reportResult = reportReader.reader(reportResultString);
+    const globalInformation = reportResult.globalInformation;
+    const counts = (0, summary_1.buildSummaryCounts)(globalInformation);
+    (0, outputs_1.setOutputs)(core, cucumberReportFile, counts);
+    const { annotations, errorNumber, notSentNumber } = await (0, annotations_1.buildAnnotations)(reportResult, inputs, remainingAnnotations, resolvePath);
+    const summary = (0, summary_1.buildSummary)(globalInformation, counts, notSentNumber, inputs.maxNumberOfAnnotations);
+    const checkRequests = (0, check_1.buildCheckRequests)({
+        context: github.context,
+        inputs,
+        globalInformation,
+        summary,
+        annotations
+    });
+    const checkTitle = checkRequests.create.output.title;
+    core.info('Creating summary:\n' + summary);
+    await core.summary
+        .addHeading(checkTitle, 4)
+        .addRaw("\n" + summary)
+        .write();
+    core.info('Sending cucumber annotations');
+    const checksReponse = await octokit.rest.checks.create(checkRequests.create);
+    for (const updateRequest of checkRequests.updates) {
+        await octokit.rest.checks.update({ ...updateRequest, check_run_id: checksReponse.data.id });
+    }
+    if ((0, check_1.shouldFailJob)(errorNumber, inputs)) {
+        core.setFailed(`${errorNumber} test(s) in error`);
+    }
+    return annotations.length;
+}
+function errorMessage(error) {
+    return error instanceof Error ? error.message : String(error);
+}
+async function publishReports({ core, github, glob, fs, workspace = process.cwd() }) {
+    const inputs = readInputs(core);
+    const resolvePath = (0, fileMatcher_1.createFileMatcher)({ core, glob, workspace });
+    const globber = await glob.create(inputs.inputPath, {
+        followSymbolicLinks: false,
+    });
+    core.info("start to read cucumber logs using path " + inputs.inputPath);
+    const reportFiles = await globber.glob();
+    if (reportFiles.length === 0) {
+        if (!inputs.ignoreNoReportFound) {
+            core.setFailed(`No file matching "${inputs.inputPath}" was found in the project.`);
+        }
+        else {
+            core.info(`No file matching "${inputs.inputPath}" was found in the project.`);
+        }
+        return;
+    }
+    const dependencies = { core, github, fs, octokit: github.getOctokit(inputs.accessToken), inputs, resolvePath };
+    let remainingAnnotations = inputs.maxNumberOfAnnotations;
+    for (const cucumberReportFile of reportFiles) {
+        core.info("found cucumber report " + cucumberReportFile);
+        try {
+            const sentAnnotationNumber = await publishReportFile(dependencies, cucumberReportFile, remainingAnnotations);
+            remainingAnnotations -= sentAnnotationNumber;
+        }
+        catch (error) {
+            throw new Error(`Unable to publish the cucumber report ${cucumberReportFile}: ${errorMessage(error)}`, { cause: error });
+        }
+    }
+}
+function errorStack(error) {
+    const cause = error instanceof Error ? error.cause ?? error : error;
+    return cause instanceof Error && cause.stack ? cause.stack : String(cause);
+}
+async function run(dependencies) {
+    try {
+        await publishReports(dependencies);
+    }
+    catch (error) {
+        dependencies.core.debug(errorStack(error));
+        dependencies.core.setFailed(errorMessage(error));
+    }
+}
+
+
+/***/ }),
+
+/***/ 3914:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.setOutputs = setOutputs;
+const path = __importStar(__nccwpck_require__(6928));
+function reportOutputName(reportFile) {
+    return path.basename(reportFile, path.extname(reportFile)).replaceAll(' ', '_');
+}
+function setOutputs(core, reportFile, counts) {
+    const outputName = reportOutputName(reportFile);
+    for (const type in counts.scenarios) {
+        core.debug(`publish output ${outputName}_${type}_scenarios=${counts.scenarios[type]}`);
+        core.setOutput(`${outputName}_${type}_scenarios`, counts.scenarios[type]);
+    }
+    for (const type in counts.steps) {
+        core.debug(`publish output ${outputName}_${type}_steps=${counts.steps[type]}`);
+        core.setOutput(`${outputName}_${type}_steps`, counts.steps[type]);
+    }
+}
+
+
+/***/ }),
+
+/***/ 5030:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.reader = reader;
+const types_1 = __nccwpck_require__(2433);
+function reader(reportString) {
+    const report = JSON.parse(reportString.toString());
+    return {
+        get listAllScenarioByFile() {
+            return report
+                .map(fileReport => fileAllScenario(fileReport));
+        },
+        get globalInformation() {
+            return report
+                .map(fileReport => globalFileInformation(fileReport))
+                .reduce((a, b) => sum(a, b), types_1.EMPTY_GLOBAL_INFO);
+        },
+        get failedSteps() {
+            return report.flatMap(fileFailureStepData);
+        },
+        get undefinedSteps() {
+            return report.flatMap(fileUndefinedStepsData);
+        },
+        get pendingSteps() {
+            return report.flatMap(filePendingStepsData);
+        }
+    };
+}
+function fileFailureStepData(fileReport) {
+    return fileReport.elements
+        .filter(scenario => hasFailed(scenario))
+        .map(failedScenario => buildFailData(fileReport, failedScenario));
+}
+function fileUndefinedStepsData(fileReport) {
+    return fileReport.elements
+        .filter(scenario => hasUndefined(scenario))
+        .map(undefinedScenario => buildUndefinedData(fileReport, undefinedScenario));
+}
+function filePendingStepsData(fileReport) {
+    return fileReport.elements
+        .filter(scenario => hasPending(scenario))
+        .map(pendingScenario => buildPendingData(fileReport, pendingScenario));
+}
+function fileAllScenario(fileReport) {
+    return {
+        file: fileReport.uri,
+        name: fileReport.name,
+        scenarios: fileReport.elements
+            .map(scenario => ({
+            name: scenario.name,
+            status: getScenarioStatus(scenario)
+        }))
+    };
+}
+function sum(info1, info2) {
+    return {
+        scenarioNumber: info1.scenarioNumber + info2.scenarioNumber,
+        failedScenarioNumber: info1.failedScenarioNumber + info2.failedScenarioNumber,
+        pendingScenarioNumber: info1.pendingScenarioNumber + info2.pendingScenarioNumber,
+        undefinedScenarioNumber: info1.undefinedScenarioNumber + info2.undefinedScenarioNumber,
+        stepsNumber: info1.stepsNumber + info2.stepsNumber,
+        succeedScenarioNumber: info1.succeedScenarioNumber + info2.succeedScenarioNumber,
+        failedStepsNumber: info1.failedStepsNumber + info2.failedStepsNumber,
+        skippedStepsNumber: info1.skippedStepsNumber + info2.skippedStepsNumber,
+        undefinedStepsNumber: info1.undefinedStepsNumber + info2.undefinedStepsNumber,
+        succeedStepsNumber: info1.succeedStepsNumber + info2.succeedStepsNumber,
+        pendingStepNumber: info1.pendingStepNumber + info2.pendingStepNumber
+    };
+}
+function globalFileInformation(reportFile) {
+    const scenario = reportFile.elements
+        .filter(element => element.type === 'scenario');
+    const failedScenarioNumber = scenario
+        .filter(scenario => hasFailed(scenario))
+        .length;
+    const undefinedScenarioNumber = scenario
+        .filter(scenario => hasUndefined(scenario))
+        .length;
+    const pendingScenarioNumber = scenario
+        .filter(scenario => hasPending(scenario))
+        .length;
+    // hooks are used for the scenario status but are not counted as steps
+    const stepsNumber = countStepsWithoutHooks(reportFile, () => true);
+    const failedStepsNumber = countStepsWithoutHooks(reportFile, step => step.result.status === 'failed');
+    const skippedStepsNumber = countStepsWithoutHooks(reportFile, step => step.result.status === 'skipped');
+    const undefinedStepsNumber = countStepsWithoutHooks(reportFile, step => step.result.status === 'undefined');
+    const pendingStepNumber = countStepsWithoutHooks(reportFile, step => step.result.status === 'pending');
+    const result = {
+        scenarioNumber: scenario.length,
+        failedScenarioNumber: failedScenarioNumber,
+        undefinedScenarioNumber: undefinedScenarioNumber,
+        pendingScenarioNumber: pendingScenarioNumber,
+        succeedScenarioNumber: scenario.length - failedScenarioNumber - undefinedScenarioNumber - pendingScenarioNumber,
+        stepsNumber: stepsNumber,
+        failedStepsNumber: failedStepsNumber,
+        skippedStepsNumber: skippedStepsNumber,
+        undefinedStepsNumber: undefinedStepsNumber,
+        pendingStepNumber: pendingStepNumber,
+        succeedStepsNumber: stepsNumber - failedStepsNumber - skippedStepsNumber - undefinedStepsNumber - pendingStepNumber
+    };
+    return result;
+}
+// depending on the cucumber version, hooks are in before/after or in steps with the hidden flag
+function isHook(scenario, step) {
+    return !!step.hidden
+        || (scenario.before || []).includes(step)
+        || (scenario.after || []).includes(step);
+}
+function countStepsWithoutHooks(reportFile, predicate) {
+    return reportFile.elements
+        .map(scenario => (scenario.steps || [])
+        .filter(step => !isHook(scenario, step) && predicate(step))
+        .length)
+        .reduce((a, b) => a + b, 0);
+}
+function getFailedSteps(scenario) {
+    return getStepByStatus(scenario, 'failed');
+}
+function getUndefinedSteps(scenario) {
+    return getStepByStatus(scenario, 'undefined');
+}
+function getPendingSteps(scenario) {
+    return getStepByStatus(scenario, 'pending');
+}
+function getScenarioStatus(scenario) {
+    const steps = [...scenario.before || [], ...scenario.after || [], ...scenario.steps || []];
+    for (const step of steps) {
+        if (step.result.status === 'failed') {
+            return 'failed';
+        }
+        else if (step.result.status === 'skipped') {
+            return 'skipped';
+        }
+        else if (step.result.status === 'undefined') {
+            return 'undefined';
+        }
+        else if (step.result.status === 'pending') {
+            return 'pending';
+        }
+    }
+    return 'success';
+}
+function getStepByStatus(scenario, status) {
+    const before = scenario.before || [];
+    const after = scenario.after || [];
+    const steps = scenario.steps || [];
+    return before.concat(after, steps)
+        .filter(step => step.result.status === status);
+}
+function hasFailed(scenario) {
+    return getFailedSteps(scenario).length > 0;
+}
+function hasUndefined(scenario) {
+    return getUndefinedSteps(scenario).length > 0;
+}
+function hasPending(scenario) {
+    return getPendingSteps(scenario).length > 0;
+}
+function buildFailData(fileReport, scenario) {
+    return buildStepData(fileReport, scenario, getFailedSteps);
+}
+function buildUndefinedData(fileReport, scenario) {
+    return buildStepData(fileReport, scenario, getUndefinedSteps);
+}
+function buildPendingData(fileReport, scenario) {
+    return buildStepData(fileReport, scenario, getPendingSteps);
+}
+function getHookName(scenario, hook) {
+    if (hook.keyword) {
+        return `${hook.keyword.trim()} hook`;
+    }
+    else if ((scenario.before || []).includes(hook)) {
+        return 'Before hook';
+    }
+    else if ((scenario.after || []).includes(hook)) {
+        return 'After hook';
+    }
+    return 'Hook';
+}
+function buildStepData(fileReport, scenario, getStepsFunction) {
+    const step = getStepsFunction(scenario)[0];
+    const stepIsHook = isHook(scenario, step);
+    return {
+        file: fileReport.uri,
+        line: stepIsHook ? scenario.line : step.line,
+        title: scenario.name,
+        step: stepIsHook ? getHookName(scenario, step) : step.name ?? '',
+        error: step.result.error_message
+    };
+}
+
+
+/***/ }),
+
+/***/ 4208:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.reader = reader;
+const types_1 = __nccwpck_require__(2433);
+function reader(reportString) {
+    const features = [];
+    const scenario = {};
+    const steps = {};
+    const pickles = {};
+    const picklesSteps = {};
+    const hooks = {};
+    const testCases = {};
+    const testCasesStarted = {};
+    const finishedTestCases = [];
+    reportString
+        .toString().split('\n')
+        .filter(it => it !== '')
+        .forEach(line => {
+        const element = JSON.parse(line);
+        if (element.gherkinDocument) {
+            const gherkinDocument = element.gherkinDocument;
+            const feature = gherkinDocument.feature;
+            // scenarios and backgrounds can be nested in rules
+            const children = feature.children
+                .flatMap(it => it.rule ? it.rule.children : [it]);
+            const scenarios = [];
+            children.forEach(it => {
+                if (it.scenario) {
+                    const sc = {
+                        name: it.scenario.name,
+                        id: it.scenario.id,
+                        location: it.scenario.location,
+                        uri: gherkinDocument.uri,
+                        pickles: {}
+                    };
+                    scenario[sc.id] = sc;
+                    scenarios.push(sc);
+                }
+            });
+            children.forEach(it => {
+                const scenarioSteps = it.background?.steps ?? it.scenario?.steps ?? [];
+                scenarioSteps.forEach(step => {
+                    steps[step.id] = {
+                        location: step.location
+                    };
+                });
+            });
+            features.push({
+                name: feature.name,
+                location: feature.location,
+                uri: gherkinDocument.uri,
+                scenarios: scenarios
+            });
+        }
+        else if (element.pickle) {
+            const pk = {
+                name: element.pickle.name,
+                scenario: scenario[element.pickle.astNodeIds[0]],
+                steps: element.pickle.steps.map(it => {
+                    return ({
+                        id: it.id,
+                        name: it.text,
+                        location: steps[it.astNodeIds[0]].location
+                    });
+                })
+            };
+            pk.steps.forEach(it => picklesSteps[it.id] = it);
+            scenario[element.pickle.astNodeIds[0]].pickles[element.pickle.id] = pk;
+            pickles[element.pickle.id] = pk;
+        }
+        else if (element.hook) {
+            hooks[element.hook.id] = element.hook;
+        }
+        else if (element.testCase) {
+            const testCase = {
+                id: element.testCase.id,
+                pickle: pickles[element.testCase.pickleId],
+                // hook steps have a hookId instead of a pickleStepId
+                steps: element.testCase.testSteps.map(it => ({
+                    id: it.id,
+                    pickleStep: it.pickleStepId === undefined ? undefined : picklesSteps[it.pickleStepId],
+                    hook: it.hookId === undefined ? undefined : hooks[it.hookId]
+                }))
+            };
+            testCases[testCase.id] = testCase;
+        }
+        else if (element.testCaseStarted) {
+            testCasesStarted[element.testCaseStarted.id] = {
+                testCase: testCases[element.testCaseStarted.testCaseId],
+                results: {}
+            };
+        }
+        else if (element.testStepFinished) {
+            const testCaseStarted = testCasesStarted[element.testStepFinished.testCaseStartedId];
+            testCaseStarted.results[element.testStepFinished.testStepId] = element.testStepFinished.testStepResult;
+        }
+        else if (element.testCaseFinished) {
+            const testCaseStartedId = element.testCaseFinished.testCaseStartedId;
+            // only the last attempt of a retried test case is kept
+            if (!element.testCaseFinished.willBeRetried) {
+                const testCaseStarted = testCasesStarted[testCaseStartedId];
+                const testCase = testCaseStarted.testCase;
+                const finishedTestCase = {
+                    ...testCase,
+                    steps: testCase.steps.map(step => ({ ...step, result: testCaseStarted.results[step.id] }))
+                };
+                testCase.pickle.testCase = finishedTestCase;
+                finishedTestCases.push(finishedTestCase);
+            }
+            delete testCasesStarted[testCaseStartedId];
+        }
+    });
+    const globalInfo = globalInformation(finishedTestCases);
+    return {
+        get listAllScenarioByFile() {
+            return features
+                .map(feature => ({
+                file: feature.uri,
+                name: feature.name,
+                scenarios: feature.scenarios
+                    .flatMap(scenario => Object.values(scenario.pickles)
+                    // pickles excluded by a tag filter have no test case
+                    .flatMap(pickle => pickle.testCase ? [{
+                        name: scenario.name,
+                        status: getTestCaseStatus(pickle.testCase)
+                    }] : []))
+            }))
+                .filter(feature => feature.scenarios.length > 0);
+        },
+        get globalInformation() {
+            return globalInfo;
+        },
+        get failedSteps() {
+            return getStepsByStatus(finishedTestCases, 'FAILED');
+        },
+        get undefinedSteps() {
+            return getStepsByStatus(finishedTestCases, 'UNDEFINED');
+        },
+        get pendingSteps() {
+            return getStepsByStatus(finishedTestCases, 'PENDING');
+        }
+    };
+}
+function globalInformation(testCases) {
+    const globalInfo = { ...types_1.EMPTY_GLOBAL_INFO };
+    testCases.forEach(testCase => {
+        // hooks are used for the scenario status but are not counted as steps
+        const allStatuses = testCase.steps.map(step => step.result.status);
+        const stepStatuses = testCase.steps
+            .filter(step => step.pickleStep)
+            .map(step => step.result.status);
+        const countSteps = (status) => stepStatuses.filter(it => it === status).length;
+        globalInfo.scenarioNumber++;
+        if (allStatuses.includes('FAILED')) {
+            globalInfo.failedScenarioNumber++;
+        }
+        if (allStatuses.includes('PENDING')) {
+            globalInfo.pendingScenarioNumber++;
+        }
+        if (allStatuses.includes('UNDEFINED')) {
+            globalInfo.undefinedScenarioNumber++;
+        }
+        globalInfo.stepsNumber += stepStatuses.length;
+        globalInfo.failedStepsNumber += countSteps('FAILED');
+        globalInfo.pendingStepNumber += countSteps('PENDING');
+        globalInfo.undefinedStepsNumber += countSteps('UNDEFINED');
+        globalInfo.skippedStepsNumber += countSteps('SKIPPED');
+        globalInfo.succeedStepsNumber += countSteps('PASSED');
+    });
+    globalInfo.succeedScenarioNumber = globalInfo.scenarioNumber
+        - globalInfo.failedScenarioNumber - globalInfo.pendingScenarioNumber - globalInfo.undefinedScenarioNumber;
+    return globalInfo;
+}
+function getStepsByStatus(testCases, status) {
+    return testCases
+        .flatMap(testCase => testCase.steps
+        .filter(it => it.result.status === status)
+        .map(it => {
+        const scenario = testCase.pickle.scenario;
+        return ({
+            file: scenario.uri,
+            line: it.pickleStep ? it.pickleStep.location.line : scenario.location.line,
+            title: testCase.pickle.name,
+            step: it.pickleStep ? it.pickleStep.name : getHookName(it.hook),
+            error: it.result.message
+        });
+    }));
+}
+function getHookName(hook) {
+    if (hook?.name) {
+        return hook.name;
+    }
+    switch (hook?.type) {
+        case 'BEFORE_TEST_CASE':
+            return 'Before hook';
+        case 'AFTER_TEST_CASE':
+            return 'After hook';
+        default:
+            return 'Hook';
+    }
+}
+function getTestCaseStatus(testCase) {
+    const steps = testCase.steps;
+    for (const step of steps) {
+        if (step.result.status === 'FAILED') {
+            return 'failed';
+        }
+        else if (step.result.status === 'SKIPPED') {
+            return 'skipped';
+        }
+        else if (step.result.status === 'UNDEFINED') {
+            return 'undefined';
+        }
+        else if (step.result.status === 'PENDING') {
+            return 'pending';
+        }
+    }
+    return 'success';
+}
+
+
+/***/ }),
+
+/***/ 847:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.buildSummaryCounts = buildSummaryCounts;
+exports.buildSummary = buildSummary;
+function buildSummaryCounts(globalInformation) {
+    return {
+        scenarios: {
+            'failed': globalInformation.failedScenarioNumber,
+            'undefined': globalInformation.undefinedScenarioNumber,
+            'pending': globalInformation.pendingScenarioNumber,
+            'passed': globalInformation.succeedScenarioNumber
+        },
+        steps: {
+            'failed': globalInformation.failedStepsNumber,
+            'undefined': globalInformation.undefinedStepsNumber,
+            'skipped': globalInformation.skippedStepsNumber,
+            'pending': globalInformation.pendingStepNumber,
+            'passed': globalInformation.succeedStepsNumber
+        }
+    };
+}
+function buildSummaryLine(itemNumber, itemType, itemCounts) {
+    const header = itemNumber + ' ' + itemType;
+    const counts = Object.keys(itemCounts)
+        .filter(key => itemCounts[key] > 0)
+        .map(key => itemCounts[key] + ' ' + key)
+        .join(', ');
+    return `    ${header} (${counts})`;
+}
+function buildNotSentAnnotationsMessage(notSentNumber, maxNumberOfAnnotations) {
+    return notSentNumber > 0
+        ? `\n\n${notSentNumber} annotation(s) not sent: the maximum number of annotations (${maxNumberOfAnnotations}) is reached.`
+        : '';
+}
+function buildSummary(globalInformation, counts, notSentAnnotationNumber = 0, maxNumberOfAnnotations) {
+    return buildSummaryLine(globalInformation.scenarioNumber, 'Scenarios', counts.scenarios)
+        + '\n'
+        + buildSummaryLine(globalInformation.stepsNumber, 'Steps', counts.steps)
+        + buildNotSentAnnotationsMessage(notSentAnnotationNumber, maxNumberOfAnnotations);
+}
+
+
+/***/ }),
+
+/***/ 2433:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+// Types shared by the modules of the action
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.EMPTY_GLOBAL_INFO = void 0;
+exports.EMPTY_GLOBAL_INFO = {
+    scenarioNumber: 0,
+    failedScenarioNumber: 0,
+    pendingScenarioNumber: 0,
+    undefinedScenarioNumber: 0,
+    stepsNumber: 0,
+    succeedScenarioNumber: 0,
+    failedStepsNumber: 0,
+    skippedStepsNumber: 0,
+    undefinedStepsNumber: 0,
+    succeedStepsNumber: 0,
+    pendingStepNumber: 0
+};
+
+
+/***/ }),
+
 /***/ 4914:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
@@ -60423,856 +61391,6 @@ module.exports = {
 
 /***/ }),
 
-/***/ 5111:
-/***/ ((module) => {
-
-function emojiByStatus(status) {
-    switch (status) {
-        case 'success':
-            return '✅';
-        case 'failed':
-            return '❌'
-        case 'pending':
-            return '⌛';
-        default:
-            return '-';
-    }
-}
-
-async function buildStepAnnotation(cucumberError, status, errorType, resolvePath) {
-    return {
-        path: (await resolvePath(cucumberError.file)) || cucumberError.file,
-        start_line: cucumberError.line || 0,
-        end_line: cucumberError.line || 0,
-        start_column: 0,
-        end_column: 0,
-        annotation_level: status,
-        title: cucumberError.title + ' ' + errorType + '.',
-        message: 'Scenario: ' + cucumberError.title + '\nStep: ' + cucumberError.step + '\nError: \n' + cucumberError.error
-    }
-}
-
-async function buildReportDetailAnnotation(fileReport, resolvePath) {
-    const message = fileReport.scenarios
-        .map(scenario => `${emojiByStatus(scenario.status)} Scenario: ${scenario.name}`)
-        .join('\n');
-
-    return {
-        path: (await resolvePath(fileReport.file)) || fileReport.file,
-        start_line: 0,
-        end_line: 0,
-        start_column: 0,
-        end_column: 0,
-        annotation_level: 'notice',
-        title: `Feature: ${fileReport.name} Report`,
-        message
-    };
-}
-
-function listStepsToAnnotate(reportResult, { annotationStatusOnError, annotationStatusOnUndefined, annotationStatusOnPending }) {
-    const stepsWithType = (steps, status, errorType) => steps.map(step => ({ step, status, errorType }));
-    return [
-        ...stepsWithType(reportResult.failedSteps, annotationStatusOnError, 'Failed'),
-        ...(annotationStatusOnUndefined ? stepsWithType(reportResult.undefinedSteps, annotationStatusOnUndefined, 'Undefined') : []),
-        ...(annotationStatusOnPending ? stepsWithType(reportResult.pendingSteps, annotationStatusOnPending, 'Pending') : [])
-    ];
-}
-
-// annotations over the maximum are not built, as resolving their path is costly
-async function buildAnnotations(reportResult, inputs, maxNumberOfAnnotations, resolvePath) {
-    const steps = listStepsToAnnotate(reportResult, inputs);
-    const fileReports = inputs.showGlobalSummaryReport ? reportResult.listAllScenarioByFile : [];
-    const sentSteps = steps.slice(0, maxNumberOfAnnotations);
-    const sentFileReports = fileReports.slice(0, maxNumberOfAnnotations - sentSteps.length);
-
-    const annotations = await Promise.all([
-        ...sentSteps.map(({ step, status, errorType }) => buildStepAnnotation(step, status, errorType, resolvePath)),
-        ...sentFileReports.map(fileReport => buildReportDetailAnnotation(fileReport, resolvePath))
-    ]);
-    return {
-        annotations,
-        errorNumber: steps.length,
-        notSentNumber: steps.length + fileReports.length - annotations.length
-    };
-}
-
-module.exports = { buildAnnotations };
-
-
-/***/ }),
-
-/***/ 1333:
-/***/ ((module) => {
-
-// the checks API accepts at most 50 annotations per request
-const MAX_ANNOTATIONS_PER_REQUEST = 50;
-
-function buildCheckTitle(globalInformation, { checkName, showNumberOfErrorOnCheckTitle }) {
-    const failed = globalInformation.failedScenarioNumber;
-    return showNumberOfErrorOnCheckTitle && failed > 0
-        ? `${checkName} (${failed} error${failed > 1 ? 's' : ''})`
-        : checkName;
-}
-
-function computeCheckStatus(globalInformation, { checkStatusOnError, checkStatusOnUndefined, checkStatusOnPending }) {
-    if (globalInformation.failedScenarioNumber > 0 && checkStatusOnError !== 'success') {
-        return checkStatusOnError;
-    }
-    if (globalInformation.undefinedStepsNumber > 0 && checkStatusOnUndefined !== 'success') {
-        return checkStatusOnUndefined;
-    }
-    if (globalInformation.pendingStepNumber > 0) {
-        return checkStatusOnPending;
-    }
-    return 'success';
-}
-
-function buildCheckRequests({ context, inputs, globalInformation, summary, annotations }) {
-    const pullRequest = context.payload.pull_request;
-    const output = {
-        title: buildCheckTitle(globalInformation, inputs),
-        summary
-    };
-    const updates = [];
-    for (let index = MAX_ANNOTATIONS_PER_REQUEST; index < annotations.length; index += MAX_ANNOTATIONS_PER_REQUEST) {
-        updates.push({
-            ...context.repo,
-            output: { ...output, annotations: annotations.slice(index, index + MAX_ANNOTATIONS_PER_REQUEST) }
-        });
-    }
-    return {
-        create: {
-            ...context.repo,
-            name: inputs.checkName,
-            head_sha: (pullRequest && pullRequest.head.sha) || context.sha,
-            status: 'completed',
-            conclusion: computeCheckStatus(globalInformation, inputs),
-            output: { ...output, annotations: annotations.slice(0, MAX_ANNOTATIONS_PER_REQUEST) }
-        },
-        updates
-    };
-}
-
-function shouldFailJob(errorCount, { numberOfTestErrorToFailJob }) {
-    return numberOfTestErrorToFailJob !== -1 && errorCount >= numberOfTestErrorToFailJob;
-}
-
-module.exports = {
-    buildCheckTitle,
-    computeCheckStatus,
-    buildCheckRequests,
-    shouldFailJob
-};
-
-
-/***/ }),
-
-/***/ 4145:
-/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
-
-const path = __nccwpck_require__(6928);
-
-// annotation paths are relative to the repository root and use / as separator
-function toRelativePath(featureFile, workspace) {
-    return path.relative(workspace, featureFile).split(path.sep).join('/');
-}
-
-function isInNodeModules(relativePath) {
-    return relativePath.split('/').includes('node_modules');
-}
-
-function findBestMatch(featureFiles, file) {
-    const searchFile = file.startsWith('classpath:') ? file.substring(10) : file;
-    return featureFiles.find(featureFile => featureFile === searchFile || featureFile.endsWith('/' + searchFile));
-}
-
-function createFileMatcher({ core, glob, workspace }) {
-    let featureFiles;
-    const warnedFiles = new Set();
-
-    async function listFeatureFiles() {
-        const globber = await glob.create('**/*.feature', {
-            followSymbolicLinks: false,
-        });
-        return (await globber.glob())
-            .map(featureFile => toRelativePath(featureFile, workspace))
-            .filter(relativePath => !isInNodeModules(relativePath));
-    }
-
-    return async file => {
-        featureFiles ??= listFeatureFiles();
-        const bestMatch = findBestMatch(await featureFiles, file);
-        if (bestMatch) {
-            core.debug(`Best path found for ${file} is ${bestMatch}.`);
-        } else if (!warnedFiles.has(file)) {
-            warnedFiles.add(file);
-            core.warning(`No file matching "${file}" was found in the project.`);
-        }
-        return bestMatch;
-    };
-}
-
-module.exports = { createFileMatcher };
-
-
-/***/ }),
-
-/***/ 7936:
-/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
-
-const reportReaderJson = __nccwpck_require__(6707);
-const reportReaderNdJson = __nccwpck_require__(9189);
-const { createFileMatcher } = __nccwpck_require__(4145);
-const { buildAnnotations } = __nccwpck_require__(5111);
-const { setOutputs } = __nccwpck_require__(7935);
-const { buildSummaryCounts, buildSummary } = __nccwpck_require__(9449);
-const { buildCheckRequests, shouldFailJob } = __nccwpck_require__(1333);
-
-function readInputs(core) {
-    return {
-        inputPath: core.getInput('path'),
-        checkName: core.getInput('name'),
-        accessToken: core.getInput('access-token'),
-        checkStatusOnError: core.getInput('check-status-on-error'),
-        checkStatusOnUndefined: core.getInput('check-status-on-undefined'),
-        checkStatusOnPending: core.getInput('check-status-on-pending'),
-        annotationStatusOnError: core.getInput('annotation-status-on-error'),
-        annotationStatusOnUndefined: core.getInput('annotation-status-on-undefined'),
-        annotationStatusOnPending: core.getInput('annotation-status-on-pending'),
-        showNumberOfErrorOnCheckTitle: core.getBooleanInput('show-number-of-error-on-check-title'),
-        numberOfTestErrorToFailJob: Number(core.getInput('number-of-test-error-to-fail-job')),
-        showGlobalSummaryReport: core.getBooleanInput('show-global-summary-report'),
-        ignoreNoReportFound: core.getBooleanInput('ignore-no-report-found'),
-        maxNumberOfAnnotations: Number(core.getInput('max-number-of-annotations'))
-    };
-}
-
-async function publishReportFile({ core, github, fs, octokit, inputs, resolvePath }, cucumberReportFile, remainingAnnotations) {
-    const reportResultString = await fs.promises.readFile(cucumberReportFile);
-    const reportResult = (cucumberReportFile.endsWith('.json') ? reportReaderJson : reportReaderNdJson).reader(reportResultString);
-    const globalInformation = reportResult.globalInformation;
-    const counts = buildSummaryCounts(globalInformation);
-    setOutputs(core, cucumberReportFile, counts);
-
-    const { annotations, errorNumber, notSentNumber } = await buildAnnotations(reportResult, inputs, remainingAnnotations, resolvePath);
-
-    const summary = buildSummary(globalInformation, counts, notSentNumber, inputs.maxNumberOfAnnotations);
-    const checkRequests = buildCheckRequests({
-        context: github.context,
-        inputs,
-        globalInformation,
-        summary,
-        annotations
-    });
-    const checkTitle = checkRequests.create.output.title;
-
-    core.info('Creating summary:\n' + summary);
-    await core.summary
-      .addHeading(checkTitle, 4)
-      .addRaw("\n" + summary)
-      .write()
-
-    core.info('Sending cucumber annotations');
-    const checksReponse = await octokit.rest.checks.create(checkRequests.create);
-    for (const updateRequest of checkRequests.updates) {
-        await octokit.rest.checks.update({ ...updateRequest, check_run_id: checksReponse.data.id });
-    }
-
-    if (shouldFailJob(errorNumber, inputs)) {
-        core.setFailed(`${errorNumber} test(s) in error`);
-    }
-    return annotations.length;
-}
-
-async function publishReports({ core, github, glob, fs, workspace = process.cwd() }) {
-    const inputs = readInputs(core);
-    const resolvePath = createFileMatcher({ core, glob, workspace });
-    const globber = await glob.create(inputs.inputPath, {
-        followSymbolicLinks: false,
-    });
-    core.info("start to read cucumber logs using path " + inputs.inputPath);
-
-    const reportFiles = await globber.glob();
-    if (reportFiles.length === 0) {
-        if (!inputs.ignoreNoReportFound) {
-            core.setFailed(`No file matching "${inputs.inputPath}" was found in the project.`);
-        } else {
-            core.info(`No file matching "${inputs.inputPath}" was found in the project.`);
-        }
-        return;
-    }
-    const dependencies = { core, github, fs, octokit: github.getOctokit(inputs.accessToken), inputs, resolvePath };
-    let remainingAnnotations = inputs.maxNumberOfAnnotations;
-    for await (const cucumberReportFile of reportFiles) {
-        core.info("found cucumber report " + cucumberReportFile);
-        try {
-            const sentAnnotationNumber = await publishReportFile(dependencies, cucumberReportFile, remainingAnnotations);
-            remainingAnnotations -= sentAnnotationNumber;
-        } catch (error) {
-            throw new Error(`Unable to publish the cucumber report ${cucumberReportFile}: ${error.message}`, { cause: error });
-        }
-    }
-}
-
-async function run(dependencies) {
-    try {
-        await publishReports(dependencies);
-    } catch (error) {
-        dependencies.core.debug(error.cause ? error.cause.stack : error.stack);
-        dependencies.core.setFailed(error.message);
-    }
-}
-
-module.exports = { run };
-
-
-/***/ }),
-
-/***/ 7935:
-/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
-
-const path = __nccwpck_require__(6928);
-
-function reportOutputName(reportFile) {
-    return path.basename(reportFile, path.extname(reportFile)).replaceAll(' ', '_');
-}
-
-function setOutputs(core, reportFile, counts) {
-    const outputName = reportOutputName(reportFile);
-    for (const type in counts.scenarios) {
-        core.debug(`publish output ${outputName}_${type}_scenarios=${counts.scenarios[type]}`);
-        core.setOutput(`${outputName}_${type}_scenarios`, counts.scenarios[type]);
-    }
-    for (const type in counts.steps) {
-        core.debug(`publish output ${outputName}_${type}_steps=${counts.steps[type]}`);
-        core.setOutput(`${outputName}_${type}_steps`, counts.steps[type]);
-    }
-}
-
-module.exports = { setOutputs };
-
-
-/***/ }),
-
-/***/ 6707:
-/***/ ((module) => {
-
-const EMPTY_GLOBAL_INFO = {
-    scenarioNumber: 0,
-    failedScenarioNumber: 0,
-    pendingScenarioNumber: 0,
-    undefinedScenarioNumber: 0,
-    stepsNumber: 0,
-    succeedScenarioNumber: 0,
-    failedStepsNumber: 0,
-    skippedStepsNumber: 0,
-    undefinedStepsNumber: 0,
-    succeedStepsNumber: 0,
-    pendingStepNumber: 0
-}
-
-module.exports.reader = (reportString) => {
-    const report = JSON.parse(reportString)
-    return {
-        get listAllScenarioByFile() {
-            return report
-                .map(fileReport => fileAllScenario(fileReport))
-        },
-        get globalInformation() {
-            return report
-                .map(fileReport => globalFileInformation(fileReport))
-                .reduce((a, b) => sum(a, b), EMPTY_GLOBAL_INFO);
-        },
-        get failedSteps() {
-            return report
-                .map(fileReport => fileFailureStepData(fileReport))
-                .reduce((a, b) => a.concat(b), []);
-        },
-        get undefinedSteps() {
-            return report
-                .map(fileReport => fileUndefinedStepsData(fileReport))
-                .reduce((a, b) => a.concat(b), []);
-        },
-        get pendingSteps() {
-            return report
-                .map(fileReport => filePendingStepsData(fileReport))
-                .reduce((a, b) => a.concat(b), []);
-        }
-    }
-}
-
-function fileFailureStepData(fileReport) {
-    return fileReport.elements
-        .filter(scenario => hasFailed(scenario))
-        .map(failedScenario => buildFailData(fileReport, failedScenario));
-}
-
-function fileUndefinedStepsData(fileReport) {
-    return fileReport.elements
-        .filter(scenario => hasUndefined(scenario))
-        .map(undefinedScenario => buildUndefinedData(fileReport, undefinedScenario));
-}
-
-function filePendingStepsData(fileReport) {
-    return fileReport.elements
-        .filter(scenario => hasPending(scenario))
-        .map(pendingScenario => buildPendingData(fileReport, pendingScenario));
-}
-
-function fileAllScenario(fileReport) {
-    return {
-        file: fileReport.uri,
-        name: fileReport.name,
-        scenarios: fileReport.elements
-            .map(scenario => ({
-                name: scenario.name,
-                status: getScenarioStatus(scenario)
-            }))
-    }
-}
-
-function sum(info1, info2) {
-    return {
-        scenarioNumber: info1.scenarioNumber + info2.scenarioNumber,
-        failedScenarioNumber: info1.failedScenarioNumber + info2.failedScenarioNumber,
-        pendingScenarioNumber: info1.pendingScenarioNumber + info2.pendingScenarioNumber,
-        undefinedScenarioNumber: info1.undefinedScenarioNumber + info2.undefinedScenarioNumber,
-        stepsNumber: info1.stepsNumber + info2.stepsNumber,
-        succeedScenarioNumber: info1.succeedScenarioNumber + info2.succeedScenarioNumber,
-        failedStepsNumber: info1.failedStepsNumber + info2.failedStepsNumber,
-        skippedStepsNumber: info1.skippedStepsNumber + info2.skippedStepsNumber,
-        undefinedStepsNumber: info1.undefinedStepsNumber + info2.undefinedStepsNumber,
-        succeedStepsNumber: info1.succeedStepsNumber + info2.succeedStepsNumber,
-        pendingStepNumber: info1.pendingStepNumber + info2.pendingStepNumber
-    }
-}
-
-function globalFileInformation(reportFile) {
-    const scenario = reportFile.elements
-        .filter(element => element.type === 'scenario');
-
-    const failedScenarioNumber = scenario
-        .filter(scenario => hasFailed(scenario))
-        .length;
-    const undefinedScenarioNumber = scenario
-        .filter(scenario => hasUndefined(scenario))
-        .length;
-    const pendingScenarioNumber = scenario
-        .filter(scenario => hasPending(scenario))
-        .length;
-    // hooks are used for the scenario status but are not counted as steps
-    const stepsNumber = countStepsWithoutHooks(reportFile, () => true);
-    const failedStepsNumber = countStepsWithoutHooks(reportFile, step => step.result.status === 'failed');
-    const skippedStepsNumber = countStepsWithoutHooks(reportFile, step => step.result.status === 'skipped');
-    const undefinedStepsNumber = countStepsWithoutHooks(reportFile, step => step.result.status === 'undefined');
-    const pendingStepNumber = countStepsWithoutHooks(reportFile, step => step.result.status === 'pending');
-
-    const result =  {
-        scenarioNumber: scenario.length,
-        failedScenarioNumber: failedScenarioNumber,
-        undefinedScenarioNumber: undefinedScenarioNumber,
-        pendingScenarioNumber: pendingScenarioNumber,
-        succeedScenarioNumber: scenario.length - failedScenarioNumber - undefinedScenarioNumber - pendingScenarioNumber,
-        stepsNumber: stepsNumber,
-        failedStepsNumber: failedStepsNumber,
-        skippedStepsNumber: skippedStepsNumber,
-        undefinedStepsNumber: undefinedStepsNumber,
-        pendingStepNumber: pendingStepNumber,
-        succeedStepsNumber: stepsNumber - failedStepsNumber - skippedStepsNumber - undefinedStepsNumber - pendingStepNumber
-    };
-
-    return result;
-}
-
-// depending on the cucumber version, hooks are in before/after or in steps with the hidden flag
-function isHook(scenario, step) {
-    return step.hidden
-        || (scenario.before || []).includes(step)
-        || (scenario.after || []).includes(step);
-}
-
-function countStepsWithoutHooks(reportFile, predicate) {
-    return reportFile.elements
-        .map(scenario => (scenario.steps || [])
-            .filter(step => !isHook(scenario, step) && predicate(step))
-            .length)
-        .reduce((a, b) => a + b, 0);
-}
-
-function getFailedSteps(scenario) {
-    return getStepByStatus(scenario, 'failed');
-}
-function getUndefinedSteps(scenario) {
-    return getStepByStatus(scenario, 'undefined');
-}
-function getPendingSteps(scenario) {
-    return getStepByStatus(scenario, 'pending');
-}
-function getScenarioStatus(scenario) {
-    const steps = [...scenario.before || [], ...scenario.after || [], ...scenario.steps || []];
-    for (const step of steps) {
-        if (step.result.status === 'failed') {
-            return 'failed';
-        } else if (step.result.status === 'skipped') {
-            return 'skipped';
-        } else if (step.result.status === 'undefined') {
-            return 'undefined';
-        } else if (step.result.status === 'pending') {
-            return 'pending';
-        }
-    }
-    return 'success';
-}
-
-function getStepByStatus(scenario, status) {
-    const before = scenario.before || [];
-    const after = scenario.after || [];
-    const steps = scenario.steps || [];
-
-    return before.concat(after, steps)
-        .filter(step => step.result.status === status);
-}
-
-function hasFailed(scenario) {
-    return getFailedSteps(scenario).length > 0;
-}
-
-function hasUndefined(scenario) {
-    return getUndefinedSteps(scenario).length > 0;
-}
-
-function hasPending(scenario) {
-    return getPendingSteps(scenario).length > 0;
-}
-
-function buildFailData(fileReport, scenario) {
-    return buildStepData(fileReport, scenario, getFailedSteps);
-}
-
-function buildUndefinedData(fileReport, scenario) {
-    return buildStepData(fileReport, scenario, getUndefinedSteps);
-}
-
-function buildPendingData(fileReport, scenario) {
-    return buildStepData(fileReport, scenario, getPendingSteps);
-}
-
-function getHookName(scenario, hook) {
-    if (hook.keyword) {
-        return `${hook.keyword.trim()} hook`;
-    } else if ((scenario.before || []).includes(hook)) {
-        return 'Before hook';
-    } else if ((scenario.after || []).includes(hook)) {
-        return 'After hook';
-    }
-    return 'Hook';
-}
-
-function buildStepData(fileReport, scenario, getStepsFunction) {
-    const step = getStepsFunction(scenario)[0];
-    const stepIsHook = isHook(scenario, step);
-    return {
-        file: fileReport.uri,
-        line: stepIsHook ? scenario.line : step.line,
-        title: scenario.name,
-        step: stepIsHook ? getHookName(scenario, step) : step.name,
-        error: step.result.error_message
-    }
-}
-
-/***/ }),
-
-/***/ 9189:
-/***/ ((module) => {
-
-const EMPTY_GLOBAL_INFO = {
-    scenarioNumber: 0,
-    failedScenarioNumber: 0,
-    pendingScenarioNumber: 0,
-    undefinedScenarioNumber: 0,
-    stepsNumber: 0,
-    succeedScenarioNumber: 0,
-    failedStepsNumber: 0,
-    skippedStepsNumber: 0,
-    undefinedStepsNumber: 0,
-    succeedStepsNumber: 0,
-    pendingStepNumber: 0
-}
-
-module.exports.reader = (reportString) => {
-    const features = []
-    const scenario = {}
-    const steps = {}
-    const pickles = {}
-    const picklesSteps = {}
-    const hooks = {}
-    const testCases = {}
-    const testCasesStarted = {}
-    const finishedTestCases = []
-    reportString
-        .toString().split('\n')
-        .filter(it => it !== '')
-        .forEach(line => {
-            const element = JSON.parse(line)
-            if ("gherkinDocument" in element) {
-                const feature = element.gherkinDocument.feature
-                // scenarios and backgrounds can be nested in rules
-                const children = feature.children
-                        .flatMap(it => "rule" in it ? it.rule.children : [it])
-                const scenarios = []
-                children
-                        .filter(it => "scenario" in it)
-                        .forEach(it => {
-                            const sc = {
-                                name: it.scenario.name,
-                                id: it.scenario.id,
-                                location: it.scenario.location,
-                                uri: element.gherkinDocument.uri,
-                                pickles: {}
-                            }
-                            scenario[sc.id] = sc
-                            scenarios.push(sc)
-                        })
-                children
-                        .filter(it => "background" in it || "scenario" in it)
-                        .forEach(it => {
-                            const scenarioSteps = it.background?.steps ?? it.scenario?.steps
-                            scenarioSteps.forEach(step => {
-                                steps[step.id] = {
-                                    location: step.location
-                                }
-                            })
-                        })
-
-                features.push({
-                    name: feature.name,
-                    location: feature.location,
-                    uri: element.gherkinDocument.uri,
-                    scenarios: scenarios
-                })
-            } else if ("pickle" in element) {
-                const pk = {
-                    name: element.pickle.name,
-                    scenario: scenario[element.pickle.astNodeIds[0]]
-                }
-                pk.steps = element.pickle.steps.map(it => {
-                    return ({
-                        id: it.id,
-                        name: it.text,
-                        location: steps[it.astNodeIds[0]].location
-                    })
-                })
-                pk.steps.forEach(it => picklesSteps[it.id] = it)
-                scenario[element.pickle.astNodeIds[0]].pickles[element.pickle.id] = pk
-                pickles[element.pickle.id] = pk
-            } else if ("hook" in element) {
-                hooks[element.hook.id] = element.hook
-            } else if ("testCase" in element) {
-                const testCase = {
-                    id: element.testCase.id,
-                    pickle: pickles[element.testCase.pickleId],
-                    // hook steps have a hookId instead of a pickleStepId
-                    steps: element.testCase.testSteps.map(it => ({
-                        id: it.id,
-                        pickleStep: picklesSteps[it.pickleStepId],
-                        hook: hooks[it.hookId]
-                    }))
-                }
-                testCases[testCase.id] = testCase
-            } else if ("testCaseStarted" in element) {
-                testCasesStarted[element.testCaseStarted.id] = {
-                    testCase: testCases[element.testCaseStarted.testCaseId],
-                    results: {}
-                }
-            } else if ("testStepFinished" in element) {
-                const testCaseStarted = testCasesStarted[element.testStepFinished.testCaseStartedId]
-                testCaseStarted.results[element.testStepFinished.testStepId] = element.testStepFinished.testStepResult
-            } else if ("testCaseFinished" in element) {
-                const testCaseStartedId = element.testCaseFinished.testCaseStartedId
-                // only the last attempt of a retried test case is kept
-                if (!element.testCaseFinished.willBeRetried) {
-                    const testCaseStarted = testCasesStarted[testCaseStartedId]
-                    const testCase = testCaseStarted.testCase
-                    testCase.steps.forEach(step => step.result = testCaseStarted.results[step.id])
-                    testCase.pickle.testCase = testCase
-                    finishedTestCases.push(testCase)
-                }
-                delete testCasesStarted[testCaseStartedId]
-            }
-        });
-
-    const globalInfo = globalInformation(finishedTestCases)
-
-    return {
-        get listAllScenarioByFile() {
-            return features
-                .map(feature => ({
-                    file: feature.uri,
-                    name: feature.name,
-                    scenarios: feature.scenarios
-                        .flatMap(scenario =>
-                            Object.values(scenario.pickles)
-                                // pickles excluded by a tag filter have no test case
-                                .filter(pickle => pickle.testCase)
-                                .map(pickle => ({
-                                    name: scenario.name,
-                                    status: getTestCaseStatus(pickle.testCase)
-                                }))
-                        )
-                }))
-                .filter(feature => feature.scenarios.length > 0)
-        },
-        get globalInformation() {
-            return globalInfo
-        },
-        get failedSteps() {
-            return getStepsByStatus(finishedTestCases, 'FAILED')
-        },
-        get undefinedSteps() {
-            return getStepsByStatus(finishedTestCases, 'UNDEFINED')
-        },
-        get pendingSteps() {
-            return getStepsByStatus(finishedTestCases, 'PENDING')
-        }
-    }
-}
-
-function globalInformation(testCases) {
-    const globalInfo = { ...EMPTY_GLOBAL_INFO }
-    testCases.forEach(testCase => {
-        // hooks are used for the scenario status but are not counted as steps
-        const allStatuses = testCase.steps.map(step => step.result.status)
-        const stepStatuses = testCase.steps
-            .filter(step => step.pickleStep)
-            .map(step => step.result.status)
-        const countSteps = status => stepStatuses.filter(it => it === status).length
-
-        globalInfo.scenarioNumber++
-        if (allStatuses.includes('FAILED')) {
-            globalInfo.failedScenarioNumber++
-        }
-        if (allStatuses.includes('PENDING')) {
-            globalInfo.pendingScenarioNumber++
-        }
-        if (allStatuses.includes('UNDEFINED')) {
-            globalInfo.undefinedScenarioNumber++
-        }
-
-        globalInfo.stepsNumber += stepStatuses.length
-        globalInfo.failedStepsNumber += countSteps('FAILED')
-        globalInfo.pendingStepNumber += countSteps('PENDING')
-        globalInfo.undefinedStepsNumber += countSteps('UNDEFINED')
-        globalInfo.skippedStepsNumber += countSteps('SKIPPED')
-        globalInfo.succeedStepsNumber += countSteps('PASSED')
-    })
-
-    globalInfo.succeedScenarioNumber = globalInfo.scenarioNumber
-        - globalInfo.failedScenarioNumber - globalInfo.pendingScenarioNumber - globalInfo.undefinedScenarioNumber;
-
-    return globalInfo
-}
-
-function getStepsByStatus(testCases, status) {
-    return testCases
-                .flatMap(testCase => testCase.steps
-                    .filter(it => it.result.status === status)
-                    .map(it => {
-                        const scenario = testCase.pickle.scenario
-                        return ({
-                            file: scenario.uri,
-                            line: it.pickleStep ? it.pickleStep.location.line : scenario.location.line,
-                            title: testCase.pickle.name,
-                            step: it.pickleStep ? it.pickleStep.name : getHookName(it.hook),
-                            error: it.result.message
-                        })
-                    })
-                )
-}
-
-function getHookName(hook) {
-    if (hook?.name) {
-        return hook.name
-    }
-    switch (hook?.type) {
-        case 'BEFORE_TEST_CASE':
-            return 'Before hook'
-        case 'AFTER_TEST_CASE':
-            return 'After hook'
-        default:
-            return 'Hook'
-    }
-}
-
-function getTestCaseStatus(testCase) {
-    const steps = testCase.steps;
-    for (const step of steps) {
-        if (step.result.status === 'FAILED') {
-            return 'failed';
-        } else if (step.result.status === 'SKIPPED') {
-            return 'skipped';
-        } else if (step.result.status === 'UNDEFINED') {
-            return 'undefined';
-        } else if (step.result.status === 'PENDING') {
-            return 'pending';
-        }
-    }
-    return 'success';
-}
-
-
-/***/ }),
-
-/***/ 9449:
-/***/ ((module) => {
-
-function buildSummaryCounts(globalInformation) {
-    return {
-        scenarios: {
-            'failed': globalInformation.failedScenarioNumber,
-            'undefined': globalInformation.undefinedScenarioNumber,
-            'pending': globalInformation.pendingScenarioNumber,
-            'passed': globalInformation.succeedScenarioNumber
-        },
-        steps: {
-            'failed': globalInformation.failedStepsNumber,
-            'undefined': globalInformation.undefinedStepsNumber,
-            'skipped': globalInformation.skippedStepsNumber,
-            'pending': globalInformation.pendingStepNumber,
-            'passed': globalInformation.succeedStepsNumber
-        }
-    };
-}
-
-function buildSummaryLine(itemNumber, itemType, itemCounts) {
-    const header = itemNumber + ' ' + itemType;
-    const counts = Object.keys(itemCounts)
-        .filter(key => itemCounts[key] > 0)
-        .map(key => itemCounts[key] + ' ' + key)
-        .join(', ');
-    return `    ${header} (${counts})`;
-}
-
-function buildNotSentAnnotationsMessage(notSentNumber, maxNumberOfAnnotations) {
-    return notSentNumber > 0
-        ? `\n\n${notSentNumber} annotation(s) not sent: the maximum number of annotations (${maxNumberOfAnnotations}) is reached.`
-        : '';
-}
-
-function buildSummary(globalInformation, counts, notSentAnnotationNumber = 0, maxNumberOfAnnotations) {
-    return buildSummaryLine(globalInformation.scenarioNumber, 'Scenarios', counts.scenarios)
-        + '\n'
-        + buildSummaryLine(globalInformation.stepsNumber, 'Steps', counts.steps)
-        + buildNotSentAnnotationsMessage(notSentAnnotationNumber, maxNumberOfAnnotations);
-}
-
-module.exports = {
-    buildSummaryCounts,
-    buildSummary
-};
-
-
-/***/ }),
-
 /***/ 2613:
 /***/ ((module) => {
 
@@ -67716,16 +67834,13 @@ legacyRestEndpointMethods.VERSION = VERSION;
 /******/ 	if (typeof __nccwpck_require__ !== 'undefined') __nccwpck_require__.ab = __dirname + "/";
 /******/ 	
 /************************************************************************/
-var __webpack_exports__ = {};
-const core = __nccwpck_require__(7484);
-const github = __nccwpck_require__(3228);
-const glob = __nccwpck_require__(7206);
-const fs = __nccwpck_require__(9896);
-const { run } = __nccwpck_require__(7936);
-
-run({ core, github, glob, fs, workspace: process.env.GITHUB_WORKSPACE });
-
-module.exports = __webpack_exports__;
+/******/ 	
+/******/ 	// startup
+/******/ 	// Load entry module and return exports
+/******/ 	// This entry module is referenced by other modules so it can't be inlined
+/******/ 	var __webpack_exports__ = __nccwpck_require__(1188);
+/******/ 	module.exports = __webpack_exports__;
+/******/ 	
 /******/ })()
 ;
 //# sourceMappingURL=index.js.map

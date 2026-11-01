@@ -1,4 +1,20 @@
-function emojiByStatus(status) {
+import type { Annotation, FileReport, Inputs, PathResolver, ReportResult, ScenarioStatus, StepData } from './types';
+
+type AnnotationInputs = Pick<Inputs, 'annotationStatusOnError' | 'annotationStatusOnUndefined' | 'annotationStatusOnPending' | 'showGlobalSummaryReport'>;
+
+interface StepToAnnotate {
+    step: StepData;
+    status: string;
+    errorType: string;
+}
+
+interface BuiltAnnotations {
+    annotations: Annotation[];
+    errorNumber: number;
+    notSentNumber: number;
+}
+
+function emojiByStatus(status: ScenarioStatus): string {
     switch (status) {
         case 'success':
             return '✅';
@@ -11,7 +27,7 @@ function emojiByStatus(status) {
     }
 }
 
-async function buildStepAnnotation(cucumberError, status, errorType, resolvePath) {
+async function buildStepAnnotation(cucumberError: StepData, status: string, errorType: string, resolvePath: PathResolver): Promise<Annotation> {
     return {
         path: (await resolvePath(cucumberError.file)) || cucumberError.file,
         start_line: cucumberError.line || 0,
@@ -24,7 +40,7 @@ async function buildStepAnnotation(cucumberError, status, errorType, resolvePath
     }
 }
 
-async function buildReportDetailAnnotation(fileReport, resolvePath) {
+async function buildReportDetailAnnotation(fileReport: FileReport, resolvePath: PathResolver): Promise<Annotation> {
     const message = fileReport.scenarios
         .map(scenario => `${emojiByStatus(scenario.status)} Scenario: ${scenario.name}`)
         .join('\n');
@@ -41,8 +57,8 @@ async function buildReportDetailAnnotation(fileReport, resolvePath) {
     };
 }
 
-function listStepsToAnnotate(reportResult, { annotationStatusOnError, annotationStatusOnUndefined, annotationStatusOnPending }) {
-    const stepsWithType = (steps, status, errorType) => steps.map(step => ({ step, status, errorType }));
+function listStepsToAnnotate(reportResult: ReportResult, { annotationStatusOnError, annotationStatusOnUndefined, annotationStatusOnPending }: AnnotationInputs): StepToAnnotate[] {
+    const stepsWithType = (steps: StepData[], status: string, errorType: string) => steps.map(step => ({ step, status, errorType }));
     return [
         ...stepsWithType(reportResult.failedSteps, annotationStatusOnError, 'Failed'),
         ...(annotationStatusOnUndefined ? stepsWithType(reportResult.undefinedSteps, annotationStatusOnUndefined, 'Undefined') : []),
@@ -51,7 +67,7 @@ function listStepsToAnnotate(reportResult, { annotationStatusOnError, annotation
 }
 
 // annotations over the maximum are not built, as resolving their path is costly
-async function buildAnnotations(reportResult, inputs, maxNumberOfAnnotations, resolvePath) {
+export async function buildAnnotations(reportResult: ReportResult, inputs: AnnotationInputs, maxNumberOfAnnotations: number, resolvePath: PathResolver): Promise<BuiltAnnotations> {
     const steps = listStepsToAnnotate(reportResult, inputs);
     const fileReports = inputs.showGlobalSummaryReport ? reportResult.listAllScenarioByFile : [];
     const sentSteps = steps.slice(0, maxNumberOfAnnotations);
@@ -67,5 +83,3 @@ async function buildAnnotations(reportResult, inputs, maxNumberOfAnnotations, re
         notSentNumber: steps.length + fileReports.length - annotations.length
     };
 }
-
-module.exports = { buildAnnotations };

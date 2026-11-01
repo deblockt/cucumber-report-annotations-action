@@ -1,10 +1,19 @@
-const assert = require('assert');
-const path = require('path');
-const { run } = require('../src/main');
-const { fakeCore, fakeGithub, fakeGlob, fakeFs, jsonReport } = require('./fakes');
+import * as assert from 'assert';
+import * as path from 'path';
+import { run } from '../src/main';
+import { fakeCore, fakeGithub, fakeGlob, fakeFs, jsonReport } from './fakes';
+import type { FakeGitHub } from './fakes';
+import type { GitHubContext } from '../src/types';
+
+interface ActionRun {
+    inputs?: Record<string, string>;
+    reportFiles?: string[];
+    contentByFile?: Record<string, string>;
+    payload?: GitHubContext['payload'];
+}
 
 // default values of action.yml
-const DEFAULT_INPUTS = {
+const DEFAULT_INPUTS: Record<string, string> = {
     'access-token': 'the-token',
     'path': '**/cucumber-report.json',
     'name': 'Cucumber report',
@@ -19,11 +28,11 @@ const DEFAULT_INPUTS = {
     'max-number-of-annotations': '50'
 };
 
-function fixture(name) {
+function fixture(name: string): string {
     return path.join(__dirname, 'fixtures', 'reports', name);
 }
 
-async function runAction({ inputs = {}, reportFiles = [], contentByFile = {}, payload } = {}) {
+async function runAction({ inputs = {}, reportFiles = [], contentByFile = {}, payload }: ActionRun = {}) {
     const allInputs = { ...DEFAULT_INPUTS, ...inputs };
     const core = fakeCore(allInputs);
     const github = fakeGithub({ payload });
@@ -32,10 +41,10 @@ async function runAction({ inputs = {}, reportFiles = [], contentByFile = {}, pa
     return { core, github };
 }
 
-function allSentAnnotations(github) {
+function allSentAnnotations(github: FakeGitHub) {
     return [...github.createRequests, ...github.updateRequests]
         .map(request => request.output.annotations)
-        .reduce((a, b) => a.concat(b), []);
+        .flat();
 }
 
 describe('main', () => {
@@ -142,7 +151,7 @@ describe('main', () => {
     });
 
     describe('with more than 50 annotations', () => {
-        function failingReport(scenarioNumber, file = '/workspace/cucumber-report.json') {
+        function failingReport(scenarioNumber: number, file = '/workspace/cucumber-report.json') {
             const scenarios = Array.from({ length: scenarioNumber }, (_, index) => `Scenario ${index}`);
             return { reportFiles: [file], contentByFile: { [file]: jsonReport([{ uri: 'a.feature', scenarios }]) } };
         }

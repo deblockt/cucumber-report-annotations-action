@@ -1,24 +1,25 @@
-const path = require('path');
+import * as path from 'path';
+import type { Core, Glob, PathResolver } from './types';
 
 // annotation paths are relative to the repository root and use / as separator
-function toRelativePath(featureFile, workspace) {
+function toRelativePath(featureFile: string, workspace: string): string {
     return path.relative(workspace, featureFile).split(path.sep).join('/');
 }
 
-function isInNodeModules(relativePath) {
+function isInNodeModules(relativePath: string): boolean {
     return relativePath.split('/').includes('node_modules');
 }
 
-function findBestMatch(featureFiles, file) {
+function findBestMatch(featureFiles: string[], file: string): string | undefined {
     const searchFile = file.startsWith('classpath:') ? file.substring(10) : file;
     return featureFiles.find(featureFile => featureFile === searchFile || featureFile.endsWith('/' + searchFile));
 }
 
-function createFileMatcher({ core, glob, workspace }) {
-    let featureFiles;
-    const warnedFiles = new Set();
+export function createFileMatcher({ core, glob, workspace }: { core: Core, glob: Glob, workspace: string }): PathResolver {
+    let featureFiles: Promise<string[]> | undefined;
+    const warnedFiles = new Set<string>();
 
-    async function listFeatureFiles() {
+    async function listFeatureFiles(): Promise<string[]> {
         const globber = await glob.create('**/*.feature', {
             followSymbolicLinks: false,
         });
@@ -39,5 +40,3 @@ function createFileMatcher({ core, glob, workspace }) {
         return bestMatch;
     };
 }
-
-module.exports = { createFileMatcher };

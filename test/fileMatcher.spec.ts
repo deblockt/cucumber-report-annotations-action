@@ -1,10 +1,10 @@
-const assert = require('assert');
-const { createFileMatcher } = require('../src/fileMatcher');
-const { fakeCore, fakeGlob } = require('./fakes');
+import * as assert from 'assert';
+import { createFileMatcher } from '../src/fileMatcher';
+import { fakeCore, fakeGlob } from './fakes';
 
 const WORKSPACE = '/home/runner/work/my-repo/my-repo';
 
-function matcher({ files, workspace = WORKSPACE }) {
+function matcher({ files, workspace = WORKSPACE }: { files: string[], workspace?: string }) {
     const core = fakeCore();
     const glob = fakeGlob({ '**/*.feature': files });
     return { core, glob, resolvePath: createFileMatcher({ core, glob, workspace }) };
@@ -12,7 +12,7 @@ function matcher({ files, workspace = WORKSPACE }) {
 
 describe('fileMatcher', () => {
     // resolves a file of the report among feature files given relative to the workspace
-    async function resolve(featureFiles, file) {
+    async function resolve(featureFiles: string[], file: string) {
         const { resolvePath } = matcher({ files: featureFiles.map(featureFile => `${WORKSPACE}/${featureFile}`) });
         return resolvePath(file);
     }

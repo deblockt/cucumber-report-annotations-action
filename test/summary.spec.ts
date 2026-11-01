@@ -1,5 +1,5 @@
-const assert = require('assert');
-const { buildSummaryCounts, buildSummary } = require('../src/summary');
+import * as assert from 'assert';
+import { buildSummaryCounts, buildSummary } from '../src/summary';
 
 const globalInformation = {
     scenarioNumber: 7,

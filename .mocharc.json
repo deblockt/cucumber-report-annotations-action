@@ -1,3 +1,4 @@
 {
-    "spec": "test/**/*.spec.js"
+    "spec": "test/**/*.spec.ts",
+    "node-option": ["import=tsx"]
 }
