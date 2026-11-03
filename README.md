@@ -5,7 +5,7 @@ This GitHub Action publishes action annotations from Cucumber reports.
 ## Example
 
 ```yaml
-- uses: deblockt/cucumber-report-annotations-action@v1.24
+- uses: deblockt/cucumber-report-annotations-action@v1.25
   with:
     access-token: ${{ secrets.GITHUB_TOKEN }}
     path: "**/cucumber-report.json"
