@@ -77,7 +77,7 @@ describe('jobSummary', () => {
         assert.strictEqual(summary,
             '##### Steps in error\n\n'
             + '<details><summary><b>Scenario KO</b> failed</summary>\n\n'
-            + 'File: <a href="https://github.com/owner/repo/blob/sha/src/test/features/a.feature#L3">src/test/features/a.feature#L3</a><br>\n'
+            + 'File: <a href="https://github.com/owner/repo/blob/sha/src/test/features/a.feature#L3">src/test/features/a.feature#L3</a>\n'
             + 'Step: <code>a failing step</code>\n<pre>boom</pre>\n\n'
             + '</details>');
     });

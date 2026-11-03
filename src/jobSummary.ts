@@ -62,7 +62,7 @@ function section(heading: string, items: string[], footer = ''): string {
 async function buildStepDetail(step: StepData, errorType: string, parameters: JobSummaryParameters): Promise<string> {
     const title = `<b>${escapeHtml(step.title)}</b> ${errorType.toLowerCase()}`;
     const error = step.error ? `\n<pre>${escapeHtml(step.error)}</pre>` : '';
-    return details(title, `File: ${await fileLink(step.file, parameters, step.line)}<br>\nStep: <code>${escapeHtml(step.step)}</code>${error}`);
+    return details(title, `File: ${await fileLink(step.file, parameters, step.line)}\nStep: <code>${escapeHtml(step.step)}</code>${error}`);
 }
 
 async function buildStepsSection(parameters: JobSummaryParameters): Promise<string> {

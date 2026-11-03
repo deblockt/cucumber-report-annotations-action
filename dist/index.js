@@ -49069,7 +49069,7 @@ async function buildStepDetail(step, errorType, parameters) {
   const title = `<b>${escapeHtml(step.title)}</b> ${errorType.toLowerCase()}`;
   const error = step.error ? `
 <pre>${escapeHtml(step.error)}</pre>` : "";
-  return details(title, `File: ${await fileLink(step.file, parameters, step.line)}<br>
+  return details(title, `File: ${await fileLink(step.file, parameters, step.line)}
 Step: <code>${escapeHtml(step.step)}</code>${error}`);
 }
 async function buildStepsSection(parameters) {
