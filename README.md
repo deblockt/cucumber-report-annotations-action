@@ -23,6 +23,10 @@ The action publishes the results in two places:
   - `steps`: the details of the steps in error (scenario, step, error and a link to the feature file). At most 100 steps are detailed per report;
   - `features`: the scenarios of each feature file.
 
+  ![job summary with the counts and the steps in error](doc/job-summary-steps.png)
+
+  ![job summary with the scenarios of each feature file](doc/job-summary-features.png)
+
 GitHub does not allow attaching a check run created through the API to the workflow run that created it: on a `push` or a `workflow_dispatch`, the check run can appear under any workflow run of the same commit. The job summary is always attached to the job running the action.
 
 ## Supported Formats
