@@ -82,6 +82,7 @@ jobs:
           number-of-test-error-to-fail-job: ${{ matrix.case.inputs['number-of-test-error-to-fail-job'] }}
           max-number-of-annotations: ${{ matrix.case.inputs['max-number-of-annotations'] }}
           ignore-no-report-found: ${{ matrix.case.inputs['ignore-no-report-found'] }}
+          job-summary-content: ${{ matrix.case.inputs['job-summary-content'] }}
       - name: Check the action outcome and outputs
         uses: actions/github-script@v7
         env:

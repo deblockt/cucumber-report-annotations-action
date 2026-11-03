@@ -102,7 +102,7 @@ describe('annotations', () => {
                 end_column: 0,
                 annotation_level: 'notice',
                 title: 'Feature: Feature A Report',
-                message: '✅ Scenario: Scenario OK\n❌ Scenario: Scenario KO\n⌛ Scenario: Scenario pending\n- Scenario: Scenario undefined'
+                message: '✅ Scenario: Scenario OK\n❌ Scenario: Scenario KO\n⌛ Scenario: Scenario pending\n❓ Scenario: Scenario undefined'
             });
         });
 

@@ -16,6 +16,7 @@ export interface FakeCore extends Core {
     failures: string[];
     warnings: string[];
     summaryHeadings: { text: string, level?: number | string }[];
+    summaryRaws: string[];
 }
 
 // fake of @actions/core recording the calls made by the action
@@ -25,7 +26,8 @@ export function fakeCore(inputs: Record<string, string> = {}): FakeCore {
             core.summaryHeadings.push({ text, level });
             return summary;
         },
-        addRaw() {
+        addRaw(text) {
+            core.summaryRaws.push(text);
             return summary;
         },
         write: async () => summary
@@ -35,6 +37,7 @@ export function fakeCore(inputs: Record<string, string> = {}): FakeCore {
         failures: [],
         warnings: [],
         summaryHeadings: [],
+        summaryRaws: [],
         getInput: name => inputs[name] || '',
         // same rules as @actions/core
         getBooleanInput(name) {
@@ -66,6 +69,7 @@ export function fakeGithub({ payload = {} }: { payload?: GitHubContext['payload'
         createRequests: [],
         updateRequests: [],
         context: {
+            serverUrl: 'https://github.com',
             repo: { owner: 'owner', repo: 'my-repo' },
             sha: 'commit-sha',
             payload

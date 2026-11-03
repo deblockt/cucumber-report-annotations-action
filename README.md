@@ -13,6 +13,22 @@ This GitHub Action publishes action annotations from Cucumber reports.
 
 ![demo](doc/demo.png)
 
+## Where the results are published
+
+The action publishes the results in two places:
+
+- **A check run**, named after the `name` input, with one annotation per failed step (and per undefined or pending step when `annotation-status-on-undefined` or `annotation-status-on-pending` is set). With `show-global-summary-report`, it also gets one annotation per feature file listing its scenarios. On a pull request, the check is in the **Checks** tab and the annotations are shown in **Files changed** on the feature files modified by the pull request.
+- **The job summary**, on the workflow run page. Its content is set by `job-summary-content`:
+  - `counts`: the number of scenarios and steps by status;
+  - `steps`: the details of the steps in error (scenario, step, error and a link to the feature file). At most 100 steps are detailed per report;
+  - `features`: the scenarios of each feature file.
+
+  ![job summary with the counts and the steps in error](doc/job-summary-steps.png)
+
+  ![job summary with the scenarios of each feature file](doc/job-summary-features.png)
+
+GitHub does not allow attaching a check run created through the API to the workflow run that created it: on a `push` or a `workflow_dispatch`, the check run can appear under any workflow run of the same commit. The job summary is always attached to the job running the action.
+
 ## Supported Formats
 
 This GitHub Action supports two formats:
@@ -36,7 +52,8 @@ All parameters in this action are optional, allowing flexibility in configuratio
 | **annotation-status-on-undefined**      | Annotation status for undefined steps. No annotation if not set.                        |                           | `notice`, `warning`, `failure`  |
 | **annotation-status-on-pending**        | Annotation status for pending steps. No annotation if not set.                          |                           | `notice`, `warning`, `failure`  |
 | **show-number-of-error-on-check-title** | Show the number of errors in the check title (visible in PR checks).                    | `true`                    | `true`, `false`                 |
-| **show-global-summary-report**          | Display a full summary report for each feature file.                                    | `false`                   | `true`, `false`                 |
+| **show-global-summary-report**          | Add an annotation listing the scenarios of each feature file to the check.              | `false`                   | `true`, `false`                 |
+| **job-summary-content**                 | Comma separated list of the sections written in the job summary: `counts` (number of scenarios and steps by status), `steps` (details of the steps in error), `features` (scenarios of each feature file). An empty value disables the job summary. | `counts,steps`            | `counts`, `steps`, `features`   |
 | **number-of-test-error-to-fail-job**    | Number of test errors required to fail the build. Undefined and pending steps count as errors when an annotation is created for them (`annotation-status-on-undefined`, `annotation-status-on-pending`). <br> `-1` prevents the build from failing. | `-1`                      |                                 |
 | **max-number-of-annotations**          | Maximum number of annotations sent by the action, for all the reports. Annotations of failed, undefined and pending steps are sent first, then the ones of the global summary report. The number of annotations not sent is shown in the check summary. | `50`                      |                                 |
 

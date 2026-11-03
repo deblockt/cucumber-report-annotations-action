@@ -119,6 +119,37 @@ cases:
     expect:
       conclusion: success
 
+  - name: job summary with all sections
+    report: full
+    inputs:
+      annotation-status-on-undefined: notice
+      annotation-status-on-pending: notice
+      job-summary-content: counts,steps,features
+    expect:
+      conclusion: failure
+
+  - name: job summary with feature reports only
+    report: full
+    inputs:
+      job-summary-content: features
+    expect:
+      conclusion: failure
+
+  - name: job summary disabled
+    report: full
+    inputs:
+      job-summary-content: ""
+    expect:
+      conclusion: failure
+
+  - name: fail because of unknown job summary section
+    report: full
+    extensions: [json]
+    inputs:
+      job-summary-content: counts,errors
+    expect:
+      outcome: failure
+
   - name: fail job due to failed test
     report: nonFailed
     inputs:

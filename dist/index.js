@@ -48841,23 +48841,30 @@ function findBestMatch(featureFiles, file) {
 }
 function createFileMatcher({ core: core2, glob: glob2, workspace }) {
   let featureFiles;
-  const warnedFiles = /* @__PURE__ */ new Set();
+  const resolvedFiles = /* @__PURE__ */ new Map();
   async function listFeatureFiles() {
     const globber = await glob2.create("**/*.feature", {
       followSymbolicLinks: false
     });
     return (await globber.glob()).map((featureFile) => toRelativePath(featureFile, workspace)).filter((relativePath) => !isInNodeModules(relativePath));
   }
-  return async (file) => {
+  async function resolve(file) {
     featureFiles ??= listFeatureFiles();
     const bestMatch = findBestMatch(await featureFiles, file);
     if (bestMatch) {
       core2.debug(`Best path found for ${file} is ${bestMatch}.`);
-    } else if (!warnedFiles.has(file)) {
-      warnedFiles.add(file);
+    } else {
       core2.warning(`No file matching "${file}" was found in the project.`);
     }
     return bestMatch;
+  }
+  return (file) => {
+    let resolvedFile = resolvedFiles.get(file);
+    if (!resolvedFile) {
+      resolvedFile = resolve(file);
+      resolvedFiles.set(file, resolvedFile);
+    }
+    return resolvedFile;
   };
 }
 
@@ -48870,8 +48877,10 @@ function emojiByStatus(status) {
       return "\u274C";
     case "pending":
       return "\u231B";
-    default:
-      return "-";
+    case "undefined":
+      return "\u2753";
+    case "skipped":
+      return "\u23ED\uFE0F";
   }
 }
 async function buildStepAnnotation(cucumberError, status, errorType, resolvePath) {
@@ -48990,8 +48999,10 @@ function computeCheckStatus(globalInformation2, { checkStatusOnError, checkStatu
   }
   return "success";
 }
+function headSha(context) {
+  return context.payload.pull_request?.head?.sha || context.sha;
+}
 function buildCheckRequests({ context, inputs, globalInformation: globalInformation2, summary, annotations }) {
-  const pullRequest = context.payload.pull_request;
   const output = {
     title: buildCheckTitle(globalInformation2, inputs),
     summary
@@ -49007,7 +49018,7 @@ function buildCheckRequests({ context, inputs, globalInformation: globalInformat
     create: {
       ...context.repo,
       name: inputs.checkName,
-      head_sha: pullRequest?.head?.sha || context.sha,
+      head_sha: headSha(context),
       status: "completed",
       conclusion: computeCheckStatus(globalInformation2, inputs),
       output: { ...output, annotations: annotations.slice(0, MAX_ANNOTATIONS_PER_REQUEST) }
@@ -49017,6 +49028,76 @@ function buildCheckRequests({ context, inputs, globalInformation: globalInformat
 }
 function shouldFailJob(errorCount, { numberOfTestErrorToFailJob }) {
   return numberOfTestErrorToFailJob !== -1 && errorCount >= numberOfTestErrorToFailJob;
+}
+
+// src/jobSummary.ts
+var JOB_SUMMARY_SECTIONS = ["counts", "steps", "features"];
+var MAX_JOB_SUMMARY_STEPS = 100;
+function isJobSummarySection(section2) {
+  return JOB_SUMMARY_SECTIONS.includes(section2);
+}
+function parseJobSummarySections(value) {
+  const sections = value.split(",").map((section2) => section2.trim()).filter((section2) => section2 !== "");
+  const unknownSections = sections.filter((section2) => !isJobSummarySection(section2));
+  if (unknownSections.length > 0) {
+    throw new Error(`Unknown job-summary-content section(s): ${unknownSections.join(", ")}. The possible values are: ${JOB_SUMMARY_SECTIONS.join(", ")}.`);
+  }
+  return sections.filter(isJobSummarySection);
+}
+function escapeHtml(text) {
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+async function fileLink(file, { resolvePath, fileUrl }, line) {
+  const path3 = await resolvePath(file);
+  const anchor = line ? `#L${line}` : "";
+  const label = escapeHtml((path3 ?? file) + anchor);
+  return path3 ? `<a href="${escapeHtml(fileUrl(path3) + anchor)}">${label}</a>` : `<code>${label}</code>`;
+}
+function details(summary, body) {
+  return `<details><summary>${summary}</summary>
+
+${body}
+
+</details>`;
+}
+function section(heading, items, footer = "") {
+  return items.length === 0 ? "" : `##### ${heading}
+
+${items.join("\n")}${footer}`;
+}
+async function buildStepDetail(step, errorType, parameters) {
+  const title = `<b>${escapeHtml(step.title)}</b> ${errorType.toLowerCase()}`;
+  const error = step.error ? `
+<pre>${escapeHtml(step.error)}</pre>` : "";
+  return details(title, `File: ${await fileLink(step.file, parameters, step.line)}
+Step: <code>${escapeHtml(step.step)}</code>${error}`);
+}
+async function buildStepsSection(parameters) {
+  const steps = listStepsToAnnotate(parameters.reportResult, parameters.inputs);
+  const shownSteps = steps.slice(0, MAX_JOB_SUMMARY_STEPS);
+  const notShown = steps.length > shownSteps.length ? `
+
+${steps.length - shownSteps.length} other step(s) not shown: only the first ${MAX_JOB_SUMMARY_STEPS} steps are detailed.` : "";
+  const items = await Promise.all(shownSteps.map(({ step, errorType }) => buildStepDetail(step, errorType, parameters)));
+  return section("Steps in error", items, notShown);
+}
+async function buildFileReportDetail(fileReport, parameters) {
+  const scenarios = fileReport.scenarios.map((scenario) => `<li>${emojiByStatus(scenario.status)} Scenario: ${escapeHtml(scenario.name)}</li>`).join("");
+  return details(`Feature: <b>${escapeHtml(fileReport.name)}</b>`, `File: ${await fileLink(fileReport.file, parameters)}
+<ul>${scenarios}</ul>`);
+}
+async function buildFileReportsSection(parameters) {
+  const items = await Promise.all(parameters.reportResult.listAllScenarioByFile.map((fileReport) => buildFileReportDetail(fileReport, parameters)));
+  return section("Features", items);
+}
+async function buildJobSummary(parameters) {
+  const sections = parameters.inputs.jobSummaryContent;
+  const content = [
+    sections.includes("counts") ? parameters.counts : "",
+    sections.includes("steps") ? await buildStepsSection(parameters) : "",
+    sections.includes("features") ? await buildFileReportsSection(parameters) : ""
+  ];
+  return content.filter((part) => part !== "").join("\n\n");
 }
 
 // src/main.ts
@@ -49035,7 +49116,8 @@ function readInputs(core2) {
     numberOfTestErrorToFailJob: Number(core2.getInput("number-of-test-error-to-fail-job")),
     showGlobalSummaryReport: core2.getBooleanInput("show-global-summary-report"),
     ignoreNoReportFound: core2.getBooleanInput("ignore-no-report-found"),
-    maxNumberOfAnnotations: Number(core2.getInput("max-number-of-annotations"))
+    maxNumberOfAnnotations: Number(core2.getInput("max-number-of-annotations")),
+    jobSummaryContent: parseJobSummarySections(core2.getInput("job-summary-content"))
   };
 }
 async function publishReportFile({ core: core2, github: github2, fs: fs2, octokit, inputs, resolvePath }, cucumberReportFile, remainingAnnotations) {
@@ -49056,7 +49138,11 @@ async function publishReportFile({ core: core2, github: github2, fs: fs2, octoki
   });
   const checkTitle = checkRequests.create.output.title;
   core2.info("Creating summary:\n" + summary);
-  await core2.summary.addHeading(checkTitle, 4).addRaw("\n" + summary).write();
+  const jobSummary = await buildJobSummary({ reportResult, inputs, counts: summary, resolvePath, fileUrl: fileUrlBuilder(github2.context) });
+  if (jobSummary !== "") {
+    core2.debug("Job summary:\n" + jobSummary);
+    await core2.summary.addHeading(checkTitle, 4).addRaw("\n" + jobSummary).write();
+  }
   core2.info("Sending cucumber annotations");
   const checksReponse = await octokit.rest.checks.create(checkRequests.create);
   for (const updateRequest of checkRequests.updates) {
@@ -49066,6 +49152,11 @@ async function publishReportFile({ core: core2, github: github2, fs: fs2, octoki
     core2.setFailed(`${errorNumber} test(s) in error`);
   }
   return annotations.length;
+}
+function fileUrlBuilder(context) {
+  const { serverUrl, repo: { owner, repo } } = context;
+  const sha = headSha(context);
+  return (path3) => `${serverUrl}/${owner}/${repo}/blob/${sha}/${path3.split("/").map(encodeURIComponent).join("/")}`;
 }
 function errorMessage(error) {
   return error instanceof Error ? error.message : String(error);

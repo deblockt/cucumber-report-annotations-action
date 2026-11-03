@@ -1,4 +1,5 @@
 // Types shared by the modules of the action
+import type { JobSummarySection } from './jobSummary';
 
 export type ScenarioStatus = 'success' | 'failed' | 'skipped' | 'undefined' | 'pending';
 
@@ -79,6 +80,7 @@ export interface Inputs {
     showGlobalSummaryReport: boolean;
     ignoreNoReportFound: boolean;
     maxNumberOfAnnotations: number;
+    jobSummaryContent: JobSummarySection[];
 }
 
 export interface SummaryCounts {
@@ -153,6 +155,7 @@ export interface JobSummary {
 
 // subset of @actions/github used by the action
 export interface GitHubContext {
+    serverUrl: string;
     repo: Repo;
     sha: string;
     payload: {

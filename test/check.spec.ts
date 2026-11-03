@@ -63,7 +63,7 @@ describe('check', () => {
     });
 
     describe('buildCheckRequests', () => {
-        const context: GitHubContext = { repo: { owner: 'owner', repo: 'my-repo' }, sha: 'commit-sha', payload: {} };
+        const context: GitHubContext = { serverUrl: 'https://github.com', repo: { owner: 'owner', repo: 'my-repo' }, sha: 'commit-sha', payload: {} };
         const inputs = { ...statusInputs, checkName: 'Cucumber', showNumberOfErrorOnCheckTitle: true };
 
         function requests(overrides: Partial<CheckRequestsParameters> = {}) {
