@@ -48990,8 +48990,10 @@ function computeCheckStatus(globalInformation2, { checkStatusOnError, checkStatu
   }
   return "success";
 }
+function headSha(context) {
+  return context.payload.pull_request?.head?.sha || context.sha;
+}
 function buildCheckRequests({ context, inputs, globalInformation: globalInformation2, summary, annotations }) {
-  const pullRequest = context.payload.pull_request;
   const output = {
     title: buildCheckTitle(globalInformation2, inputs),
     summary
@@ -49007,7 +49009,7 @@ function buildCheckRequests({ context, inputs, globalInformation: globalInformat
     create: {
       ...context.repo,
       name: inputs.checkName,
-      head_sha: pullRequest?.head?.sha || context.sha,
+      head_sha: headSha(context),
       status: "completed",
       conclusion: computeCheckStatus(globalInformation2, inputs),
       output: { ...output, annotations: annotations.slice(0, MAX_ANNOTATIONS_PER_REQUEST) }
@@ -49017,6 +49019,62 @@ function buildCheckRequests({ context, inputs, globalInformation: globalInformat
 }
 function shouldFailJob(errorCount, { numberOfTestErrorToFailJob }) {
   return numberOfTestErrorToFailJob !== -1 && errorCount >= numberOfTestErrorToFailJob;
+}
+
+// src/jobSummary.ts
+var MAX_JOB_SUMMARY_STEPS = 100;
+function escapeHtml(text) {
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+function fileLink(file, path3, fileUrl, line) {
+  const label = escapeHtml((path3 ?? file) + (line ? `#L${line}` : ""));
+  return path3 ? `<a href="${escapeHtml(fileUrl(path3, line))}">${label}</a>` : `<code>${label}</code>`;
+}
+function buildStepDetail({ step, errorType, path: path3 }, fileUrl) {
+  const title = `<b>${escapeHtml(step.title)}</b> ${errorType.toLowerCase()} on ${fileLink(step.file, path3, fileUrl, step.line)}`;
+  const error = step.error ? `
+<pre>${escapeHtml(step.error)}</pre>` : "";
+  return `<details><summary>${title}</summary>
+
+Step: <code>${escapeHtml(step.step)}</code>${error}
+
+</details>`;
+}
+function buildStepsSection(content, fileUrl) {
+  if (content.steps.length === 0) {
+    return "";
+  }
+  const notShown = content.notShownStepNumber > 0 ? `
+
+${content.notShownStepNumber} other step(s) not shown: only the first ${MAX_JOB_SUMMARY_STEPS} steps are detailed.` : "";
+  return "\n\n##### Steps in error\n\n" + content.steps.map((step) => buildStepDetail(step, fileUrl)).join("\n") + notShown;
+}
+function buildFileReportDetail({ fileReport, path: path3 }, fileUrl) {
+  const scenarios = fileReport.scenarios.map((scenario) => `<li>${emojiByStatus(scenario.status)} Scenario: ${escapeHtml(scenario.name)}</li>`).join("");
+  return `<details><summary>Feature: <b>${escapeHtml(fileReport.name)}</b> (${fileLink(fileReport.file, path3, fileUrl)})</summary>
+
+<ul>${scenarios}</ul>
+
+</details>`;
+}
+function buildFileReportsSection(content, fileUrl) {
+  if (content.fileReports.length === 0) {
+    return "";
+  }
+  return "\n\n##### Features\n\n" + content.fileReports.map((fileReport) => buildFileReportDetail(fileReport, fileUrl)).join("\n");
+}
+async function collectJobSummaryContent(reportResult, inputs, resolvePath) {
+  const steps = listStepsToAnnotate(reportResult, inputs);
+  const shownSteps = steps.slice(0, MAX_JOB_SUMMARY_STEPS);
+  const fileReports = inputs.showGlobalSummaryReport ? reportResult.listAllScenarioByFile : [];
+  return {
+    steps: await Promise.all(shownSteps.map(async ({ step, errorType }) => ({ step, errorType, path: await resolvePath(step.file) }))),
+    notShownStepNumber: steps.length - shownSteps.length,
+    fileReports: await Promise.all(fileReports.map(async (fileReport) => ({ fileReport, path: await resolvePath(fileReport.file) })))
+  };
+}
+function buildJobSummaryDetails(content, fileUrl) {
+  return buildStepsSection(content, fileUrl) + buildFileReportsSection(content, fileUrl);
 }
 
 // src/main.ts
@@ -49055,8 +49113,10 @@ async function publishReportFile({ core: core2, github: github2, fs: fs2, octoki
     annotations
   });
   const checkTitle = checkRequests.create.output.title;
+  const jobSummaryContent = await collectJobSummaryContent(reportResult, inputs, resolvePath);
+  const jobSummaryDetails = buildJobSummaryDetails(jobSummaryContent, fileUrlBuilder(github2.context));
   core2.info("Creating summary:\n" + summary);
-  await core2.summary.addHeading(checkTitle, 4).addRaw("\n" + summary).write();
+  await core2.summary.addHeading(checkTitle, 4).addRaw("\n" + summary + jobSummaryDetails).write();
   core2.info("Sending cucumber annotations");
   const checksReponse = await octokit.rest.checks.create(checkRequests.create);
   for (const updateRequest of checkRequests.updates) {
@@ -49066,6 +49126,11 @@ async function publishReportFile({ core: core2, github: github2, fs: fs2, octoki
     core2.setFailed(`${errorNumber} test(s) in error`);
   }
   return annotations.length;
+}
+function fileUrlBuilder(context) {
+  const { serverUrl, repo: { owner, repo } } = context;
+  const sha = headSha(context);
+  return (path3, line) => `${serverUrl}/${owner}/${repo}/blob/${sha}/${path3.split("/").map(encodeURIComponent).join("/")}${line ? `#L${line}` : ""}`;
 }
 function errorMessage(error) {
   return error instanceof Error ? error.message : String(error);

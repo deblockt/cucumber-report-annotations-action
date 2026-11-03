@@ -27,6 +27,11 @@ export function computeCheckStatus(globalInformation: CheckStatusInformation, { 
     return 'success';
 }
 
+// the check is created on the head commit of the pull request, or on the commit of the workflow
+export function headSha(context: GitHubContext): string {
+    return context.payload.pull_request?.head?.sha || context.sha;
+}
+
 export interface CheckRequestsParameters {
     context: GitHubContext;
     inputs: CheckTitleInputs & CheckStatusInputs;
@@ -36,7 +41,6 @@ export interface CheckRequestsParameters {
 }
 
 export function buildCheckRequests({ context, inputs, globalInformation, summary, annotations }: CheckRequestsParameters): CheckRequests {
-    const pullRequest = context.payload.pull_request;
     const output = {
         title: buildCheckTitle(globalInformation, inputs),
         summary
@@ -52,7 +56,7 @@ export function buildCheckRequests({ context, inputs, globalInformation, summary
         create: {
             ...context.repo,
             name: inputs.checkName,
-            head_sha: pullRequest?.head?.sha || context.sha,
+            head_sha: headSha(context),
             status: 'completed',
             conclusion: computeCheckStatus(globalInformation, inputs),
             output: { ...output, annotations: annotations.slice(0, MAX_ANNOTATIONS_PER_REQUEST) }

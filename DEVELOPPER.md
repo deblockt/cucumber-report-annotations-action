@@ -18,6 +18,7 @@ npm ci
 | `src/main.ts` | `run`: reads the inputs, finds the reports, creates the GitHub check, annotations and outputs. Its dependencies (`core`, `github`, `glob`, `fs`) are injected so it can be tested with fakes |
 | `src/summary.ts` | Pure functions: scenario/step counts and summary text |
 | `src/check.ts` | Pure functions: check title, check status, check creation request and job failure threshold |
+| `src/jobSummary.ts` | Builds the details of the job summary: steps in error and report of each feature. The path resolution is injected |
 | `src/annotations.ts` | Builds the step annotations and the global summary annotations. The path resolution is injected |
 | `src/outputs.ts` | Names and publishes the action outputs |
 | `src/fileMatcher.ts` | Finds the feature file of a report in the repository |

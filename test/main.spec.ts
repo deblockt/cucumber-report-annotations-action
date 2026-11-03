@@ -10,6 +10,7 @@ interface ActionRun {
     reportFiles?: string[];
     contentByFile?: Record<string, string>;
     payload?: GitHubContext['payload'];
+    featureFiles?: string[];
 }
 
 // default values of action.yml
@@ -32,12 +33,12 @@ function fixture(name: string): string {
     return path.join(__dirname, 'fixtures', 'reports', name);
 }
 
-async function runAction({ inputs = {}, reportFiles = [], contentByFile = {}, payload }: ActionRun = {}) {
+async function runAction({ inputs = {}, reportFiles = [], contentByFile = {}, payload, featureFiles = [] }: ActionRun = {}) {
     const allInputs = { ...DEFAULT_INPUTS, ...inputs };
     const core = fakeCore(allInputs);
     const github = fakeGithub({ payload });
-    const glob = fakeGlob({ [allInputs.path]: reportFiles });
-    await run({ core, github, glob, fs: fakeFs(contentByFile) });
+    const glob = fakeGlob({ [allInputs.path]: reportFiles, '**/*.feature': featureFiles });
+    await run({ core, github, glob, fs: fakeFs(contentByFile), workspace: '/workspace' });
     return { core, github };
 }
 
@@ -106,6 +107,24 @@ describe('main', () => {
             it('should write the job summary', async () => {
                 const { core } = await runAction({ reportFiles });
                 assert.deepStrictEqual(core.summaryHeadings, [{ text: 'Cucumber report (2 errors)', level: 4 }]);
+            });
+
+            it('should detail the failed steps in the job summary', async () => {
+                const { core } = await runAction({ reportFiles });
+                const jobSummary = core.summaryRaws.join('');
+                assert.match(jobSummary, /^\n    7 Scenarios \(2 failed, 3 undefined, 1 pending, 1 passed\)\n/);
+                assert.match(jobSummary, /##### Steps in error/);
+                assert.match(jobSummary, /<b>Scenario KO<\/b> failed on /);
+                assert.match(jobSummary, /<b>This scenario will fail because of background<\/b> failed on /);
+                assert.doesNotMatch(jobSummary, /##### Features/);
+            });
+
+            it('should add the report of each feature to the job summary when show-global-summary-report is set', async () => {
+                const { core } = await runAction({ reportFiles, inputs: { 'show-global-summary-report': 'true' } });
+                const jobSummary = core.summaryRaws.join('');
+                assert.match(jobSummary, /##### Features/);
+                assert.match(jobSummary, /Feature: <b>Test file<\/b>/);
+                assert.match(jobSummary, /Feature: <b>Test with background<\/b>/);
             });
 
             it('should fail the job when the error threshold is reached', async () => {
@@ -183,6 +202,17 @@ describe('main', () => {
             const { core } = await runAction({ ...failingReport(60), inputs: { 'number-of-test-error-to-fail-job': '55' } });
             assert.deepStrictEqual(core.failures, ['60 test(s) in error']);
         });
+    });
+
+    it('should link the steps of the job summary to the feature file at the checked commit', async () => {
+        const { core } = await runAction({
+            reportFiles: ['/workspace/cucumber-report.json'],
+            contentByFile: { '/workspace/cucumber-report.json': jsonReport([{ uri: 'classpath:features/my feature.feature', scenarios: ['Scenario KO'] }]) },
+            featureFiles: ['/workspace/src/test/resources/features/my feature.feature'],
+            payload: { pull_request: { head: { sha: 'pr-head-sha' } } }
+        });
+        assert.match(core.summaryRaws.join(''),
+            /<a href="https:\/\/github\.com\/owner\/my-repo\/blob\/pr-head-sha\/src\/test\/resources\/features\/my%20feature\.feature#L2">src\/test\/resources\/features\/my feature\.feature#L2<\/a>/);
     });
 
     it('should fail the action when a report cannot be read', async () => {

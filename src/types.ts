@@ -153,6 +153,7 @@ export interface JobSummary {
 
 // subset of @actions/github used by the action
 export interface GitHubContext {
+    serverUrl: string;
     repo: Repo;
     sha: string;
     payload: {

@@ -4,8 +4,10 @@ import { createFileMatcher } from './fileMatcher';
 import { buildAnnotations } from './annotations';
 import { setOutputs } from './outputs';
 import { buildSummaryCounts, buildSummary } from './summary';
-import { buildCheckRequests, shouldFailJob } from './check';
-import type { Core, Dependencies, Inputs, Octokit, PathResolver, ReportReader } from './types';
+import { buildCheckRequests, headSha, shouldFailJob } from './check';
+import { buildJobSummaryDetails, collectJobSummaryContent } from './jobSummary';
+import type { FileUrlBuilder } from './jobSummary';
+import type { Core, Dependencies, GitHubContext, Inputs, Octokit, PathResolver, ReportReader } from './types';
 
 interface PublishDependencies extends Pick<Dependencies, 'core' | 'github' | 'fs'> {
     octokit: Octokit;
@@ -52,10 +54,13 @@ async function publishReportFile({ core, github, fs, octokit, inputs, resolvePat
     });
     const checkTitle = checkRequests.create.output.title;
 
+    const jobSummaryContent = await collectJobSummaryContent(reportResult, inputs, resolvePath);
+    const jobSummaryDetails = buildJobSummaryDetails(jobSummaryContent, fileUrlBuilder(github.context));
+
     core.info('Creating summary:\n' + summary);
     await core.summary
       .addHeading(checkTitle, 4)
-      .addRaw("\n" + summary)
+      .addRaw("\n" + summary + jobSummaryDetails)
       .write()
 
     core.info('Sending cucumber annotations');
@@ -68,6 +73,12 @@ async function publishReportFile({ core, github, fs, octokit, inputs, resolvePat
         core.setFailed(`${errorNumber} test(s) in error`);
     }
     return annotations.length;
+}
+
+function fileUrlBuilder(context: GitHubContext): FileUrlBuilder {
+    const { serverUrl, repo: { owner, repo } } = context;
+    const sha = headSha(context);
+    return (path, line) => `${serverUrl}/${owner}/${repo}/blob/${sha}/${path.split('/').map(encodeURIComponent).join('/')}${line ? `#L${line}` : ''}`;
 }
 
 function errorMessage(error: unknown): string {

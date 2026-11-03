@@ -39,7 +39,7 @@ inputs:
     required: true
     default: 'true'
   show-global-summary-report:
-    description: "if it is set to true, a full summary report will be display for each feature file."
+    description: "if it is set to true, a report of the scenarios of each feature file will be displayed, in the check annotations and in the job summary."
     required: true
     default: 'false'
   number-of-test-error-to-fail-job:
