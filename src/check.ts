@@ -1,4 +1,4 @@
-import type { Annotation, CheckRequests, CheckUpdateRequest, GitHubContext, GlobalInformation, Inputs } from './types';
+import type { Annotation, CheckConclusion, CheckRequests, CheckUpdateRequest, GitHubContext, GlobalInformation, Inputs } from './types';
 
 // the checks API accepts at most 50 annotations per request
 const MAX_ANNOTATIONS_PER_REQUEST = 50;
@@ -14,7 +14,7 @@ export function buildCheckTitle(globalInformation: Pick<GlobalInformation, 'fail
         : checkName;
 }
 
-export function computeCheckStatus(globalInformation: CheckStatusInformation, { checkStatusOnError, checkStatusOnUndefined, checkStatusOnPending }: CheckStatusInputs): string {
+export function computeCheckStatus(globalInformation: CheckStatusInformation, { checkStatusOnError, checkStatusOnUndefined, checkStatusOnPending }: CheckStatusInputs): CheckConclusion {
     if (globalInformation.failedScenarioNumber > 0 && checkStatusOnError !== 'success') {
         return checkStatusOnError;
     }

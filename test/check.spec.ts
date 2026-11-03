@@ -1,10 +1,10 @@
 import * as assert from 'assert';
 import { buildCheckTitle, computeCheckStatus, buildCheckRequests, shouldFailJob } from '../src/check';
 import type { CheckRequestsParameters, CheckStatusInformation } from '../src/check';
-import type { GitHubContext } from '../src/types';
+import type { GitHubContext, Inputs } from '../src/types';
 import { annotation } from './fakes';
 
-const statusInputs = {
+const statusInputs: Pick<Inputs, 'checkStatusOnError' | 'checkStatusOnUndefined' | 'checkStatusOnPending'> = {
     checkStatusOnError: 'failure',
     checkStatusOnUndefined: 'neutral',
     checkStatusOnPending: 'neutral'

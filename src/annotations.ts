@@ -1,11 +1,11 @@
-import type { Annotation, FileReport, Inputs, PathResolver, ReportResult, ScenarioStatus, StepData } from './types';
+import type { Annotation, AnnotationLevel, FileReport, Inputs, PathResolver, ReportResult, ScenarioStatus, StepData } from './types';
 
 export type StepStatusInputs = Pick<Inputs, 'annotationStatusOnError' | 'annotationStatusOnUndefined' | 'annotationStatusOnPending'>;
 type AnnotationInputs = StepStatusInputs & Pick<Inputs, 'showGlobalSummaryReport'>;
 
 interface StepToAnnotate {
     step: StepData;
-    status: string;
+    status: AnnotationLevel;
     errorType: string;
 }
 
@@ -30,7 +30,7 @@ export function emojiByStatus(status: ScenarioStatus): string {
     }
 }
 
-async function buildStepAnnotation(cucumberError: StepData, status: string, errorType: string, resolvePath: PathResolver): Promise<Annotation> {
+async function buildStepAnnotation(cucumberError: StepData, status: AnnotationLevel, errorType: string, resolvePath: PathResolver): Promise<Annotation> {
     return {
         path: (await resolvePath(cucumberError.file)) || cucumberError.file,
         start_line: cucumberError.line || 0,
@@ -61,7 +61,7 @@ async function buildReportDetailAnnotation(fileReport: FileReport, resolvePath: 
 }
 
 export function listStepsToAnnotate(reportResult: ReportResult, { annotationStatusOnError, annotationStatusOnUndefined, annotationStatusOnPending }: StepStatusInputs): StepToAnnotate[] {
-    const stepsWithType = (steps: StepData[], status: string, errorType: string) => steps.map(step => ({ step, status, errorType }));
+    const stepsWithType = (steps: StepData[], status: AnnotationLevel, errorType: string) => steps.map(step => ({ step, status, errorType }));
     return [
         ...stepsWithType(reportResult.failedSteps, annotationStatusOnError, 'Failed'),
         ...(annotationStatusOnUndefined ? stepsWithType(reportResult.undefinedSteps, annotationStatusOnUndefined, 'Undefined') : []),
