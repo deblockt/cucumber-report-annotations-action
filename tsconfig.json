@@ -9,7 +9,8 @@
         "noUnusedLocals": true,
         "noUnusedParameters": true,
         "skipLibCheck": true,
-        "noEmit": true
+        "noEmit": true,
+        "allowImportingTsExtensions": true
     },
     "include": ["src/**/*.ts", "test/**/*.ts", "test/**/*.mts"]
 }
