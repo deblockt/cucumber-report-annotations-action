@@ -26,7 +26,8 @@ describe('end-to-end cases', () => {
             'show-global-summary-report': 'false',
             'number-of-test-error-to-fail-job': '-1',
             'max-number-of-annotations': '50',
-            'ignore-no-report-found': 'false'
+            'ignore-no-report-found': 'false',
+            'job-summary-content': 'counts,steps'
         });
     });
 });
