@@ -1,14 +1,16 @@
 import * as assert from 'assert';
-import { buildJobSummaryDetails, collectJobSummaryContent, MAX_JOB_SUMMARY_STEPS } from '../src/jobSummary';
+import { buildJobSummary, collectJobSummaryContent, MAX_JOB_SUMMARY_STEPS, parseJobSummarySections } from '../src/jobSummary';
 import { EMPTY_GLOBAL_INFO } from '../src/types';
-import type { ReportResult, StepData } from '../src/types';
+import type { JobSummarySection, ReportResult, StepData } from '../src/types';
 
 const inputs = {
     annotationStatusOnError: 'failure',
     annotationStatusOnUndefined: '',
     annotationStatusOnPending: '',
-    showGlobalSummaryReport: false
+    jobSummaryContent: ['steps'] as JobSummarySection[]
 };
+
+const COUNTS = '    1 Scenarios (1 failed)\n    1 Steps (1 failed)';
 
 function step(title: string, overrides: Partial<StepData> = {}): StepData {
     return { file: 'features/a.feature', line: 3, title, step: 'a failing step', error: 'boom', ...overrides };
@@ -29,18 +31,50 @@ const resolvePath = async (file: string) => file.startsWith('unknown') ? undefin
 const fileUrl = (path: string, line?: number) => `https://github.com/owner/repo/blob/sha/${path}${line ? `#L${line}` : ''}`;
 
 async function details(result: ReportResult, overrides: Partial<typeof inputs> = {}): Promise<string> {
-    return buildJobSummaryDetails(await collectJobSummaryContent(result, { ...inputs, ...overrides }, resolvePath), fileUrl);
+    return buildJobSummary(await collectJobSummaryContent(result, { ...inputs, ...overrides }, COUNTS, resolvePath), fileUrl);
 }
 
 describe('jobSummary', () => {
-    it('should be empty without step in error nor global summary report', async () => {
+    describe('parseJobSummarySections', () => {
+        it('should read a comma separated list of sections', () => {
+            assert.deepStrictEqual(parseJobSummarySections(' counts, steps ,features'), ['counts', 'steps', 'features']);
+        });
+
+        it('should read an empty value as no section', () => {
+            assert.deepStrictEqual(parseJobSummarySections(''), []);
+        });
+
+        it('should reject an unknown section', () => {
+            assert.throws(() => parseJobSummarySections('counts,errors'),
+                /^Error: Unknown job-summary-content section\(s\): errors\. The possible values are: counts, steps, features\.$/);
+        });
+    });
+
+    it('should be empty without step in error', async () => {
         assert.strictEqual(await details(reportResult()), '');
+    });
+
+    it('should be empty without section', async () => {
+        assert.strictEqual(await details(reportResult({ failedSteps: [step('Scenario KO')] }), { jobSummaryContent: [] }), '');
+    });
+
+    it('should contain the counts when the counts section is set', async () => {
+        assert.strictEqual(await details(reportResult(), { jobSummaryContent: ['counts'] }), COUNTS);
+    });
+
+    it('should separate the sections', async () => {
+        const summary = await details(reportResult({ failedSteps: [step('Scenario KO')] }), { jobSummaryContent: ['counts', 'steps'] });
+        assert.ok(summary.startsWith(COUNTS + '\n\n##### Steps in error\n\n'));
+    });
+
+    it('should not detail the steps without the steps section', async () => {
+        assert.strictEqual(await details(reportResult({ failedSteps: [step('Scenario KO')] }), { jobSummaryContent: ['counts'] }), COUNTS);
     });
 
     it('should detail a failed step with a link to the feature file', async () => {
         const summary = await details(reportResult({ failedSteps: [step('Scenario KO')] }));
         assert.strictEqual(summary,
-            '\n\n##### Steps in error\n\n'
+            '##### Steps in error\n\n'
             + '<details><summary><b>Scenario KO</b> failed on <a href="https://github.com/owner/repo/blob/sha/src/test/features/a.feature#L3">src/test/features/a.feature#L3</a></summary>\n\n'
             + 'Step: <code>a failing step</code>\n<pre>boom</pre>\n\n'
             + '</details>');
@@ -72,7 +106,7 @@ describe('jobSummary', () => {
         assert.match(summary, /3 other step\(s\) not shown: only the first 100 steps are detailed\.$/);
     });
 
-    it('should add the report of each feature when show-global-summary-report is set', async () => {
+    it('should add the report of each feature when the features section is set', async () => {
         const result = reportResult({
             listAllScenarioByFile: [{
                 file: 'features/a.feature',
@@ -81,8 +115,8 @@ describe('jobSummary', () => {
             }]
         });
         assert.strictEqual(await details(result), '');
-        assert.strictEqual(await details(result, { showGlobalSummaryReport: true }),
-            '\n\n##### Features\n\n'
+        assert.strictEqual(await details(result, { jobSummaryContent: ['features'] }),
+            '##### Features\n\n'
             + '<details><summary>Feature: <b>Feature A</b> (<a href="https://github.com/owner/repo/blob/sha/src/test/features/a.feature">src/test/features/a.feature</a>)</summary>\n\n'
             + '<ul><li>✅ Scenario: OK</li><li>❌ Scenario: KO</li></ul>\n\n'
             + '</details>');

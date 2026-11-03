@@ -63,6 +63,10 @@ export interface ReportReader {
     reader(report: string | Buffer): ReportResult;
 }
 
+// sections that can be written in the job summary
+export const JOB_SUMMARY_SECTIONS = ['counts', 'steps', 'features'] as const;
+export type JobSummarySection = typeof JOB_SUMMARY_SECTIONS[number];
+
 export interface Inputs {
     inputPath: string;
     checkName: string;
@@ -79,6 +83,7 @@ export interface Inputs {
     showGlobalSummaryReport: boolean;
     ignoreNoReportFound: boolean;
     maxNumberOfAnnotations: number;
+    jobSummaryContent: JobSummarySection[];
 }
 
 export interface SummaryCounts {

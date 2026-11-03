@@ -48472,6 +48472,7 @@ var EMPTY_GLOBAL_INFO = {
   succeedStepsNumber: 0,
   pendingStepNumber: 0
 };
+var JOB_SUMMARY_SECTIONS = ["counts", "steps", "features"];
 
 // src/reportReader-json.ts
 function reader(reportString) {
@@ -49023,6 +49024,17 @@ function shouldFailJob(errorCount, { numberOfTestErrorToFailJob }) {
 
 // src/jobSummary.ts
 var MAX_JOB_SUMMARY_STEPS = 100;
+function isJobSummarySection(section) {
+  return JOB_SUMMARY_SECTIONS.includes(section);
+}
+function parseJobSummarySections(value) {
+  const sections = value.split(",").map((section) => section.trim()).filter((section) => section !== "");
+  const unknownSections = sections.filter((section) => !isJobSummarySection(section));
+  if (unknownSections.length > 0) {
+    throw new Error(`Unknown job-summary-content section(s): ${unknownSections.join(", ")}. The possible values are: ${JOB_SUMMARY_SECTIONS.join(", ")}.`);
+  }
+  return sections.filter(isJobSummarySection);
+}
 function escapeHtml(text) {
   return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
@@ -49047,7 +49059,7 @@ function buildStepsSection(content, fileUrl) {
   const notShown = content.notShownStepNumber > 0 ? `
 
 ${content.notShownStepNumber} other step(s) not shown: only the first ${MAX_JOB_SUMMARY_STEPS} steps are detailed.` : "";
-  return "\n\n##### Steps in error\n\n" + content.steps.map((step) => buildStepDetail(step, fileUrl)).join("\n") + notShown;
+  return "##### Steps in error\n\n" + content.steps.map((step) => buildStepDetail(step, fileUrl)).join("\n") + notShown;
 }
 function buildFileReportDetail({ fileReport, path: path3 }, fileUrl) {
   const scenarios = fileReport.scenarios.map((scenario) => `<li>${emojiByStatus(scenario.status)} Scenario: ${escapeHtml(scenario.name)}</li>`).join("");
@@ -49061,20 +49073,22 @@ function buildFileReportsSection(content, fileUrl) {
   if (content.fileReports.length === 0) {
     return "";
   }
-  return "\n\n##### Features\n\n" + content.fileReports.map((fileReport) => buildFileReportDetail(fileReport, fileUrl)).join("\n");
+  return "##### Features\n\n" + content.fileReports.map((fileReport) => buildFileReportDetail(fileReport, fileUrl)).join("\n");
 }
-async function collectJobSummaryContent(reportResult, inputs, resolvePath) {
-  const steps = listStepsToAnnotate(reportResult, inputs);
+async function collectJobSummaryContent(reportResult, inputs, summary, resolvePath) {
+  const sections = inputs.jobSummaryContent;
+  const steps = sections.includes("steps") ? listStepsToAnnotate(reportResult, inputs) : [];
   const shownSteps = steps.slice(0, MAX_JOB_SUMMARY_STEPS);
-  const fileReports = inputs.showGlobalSummaryReport ? reportResult.listAllScenarioByFile : [];
+  const fileReports = sections.includes("features") ? reportResult.listAllScenarioByFile : [];
   return {
+    counts: sections.includes("counts") ? summary : void 0,
     steps: await Promise.all(shownSteps.map(async ({ step, errorType }) => ({ step, errorType, path: await resolvePath(step.file) }))),
     notShownStepNumber: steps.length - shownSteps.length,
     fileReports: await Promise.all(fileReports.map(async (fileReport) => ({ fileReport, path: await resolvePath(fileReport.file) })))
   };
 }
-function buildJobSummaryDetails(content, fileUrl) {
-  return buildStepsSection(content, fileUrl) + buildFileReportsSection(content, fileUrl);
+function buildJobSummary(content, fileUrl) {
+  return [content.counts ?? "", buildStepsSection(content, fileUrl), buildFileReportsSection(content, fileUrl)].filter((section) => section !== "").join("\n\n");
 }
 
 // src/main.ts
@@ -49093,7 +49107,8 @@ function readInputs(core2) {
     numberOfTestErrorToFailJob: Number(core2.getInput("number-of-test-error-to-fail-job")),
     showGlobalSummaryReport: core2.getBooleanInput("show-global-summary-report"),
     ignoreNoReportFound: core2.getBooleanInput("ignore-no-report-found"),
-    maxNumberOfAnnotations: Number(core2.getInput("max-number-of-annotations"))
+    maxNumberOfAnnotations: Number(core2.getInput("max-number-of-annotations")),
+    jobSummaryContent: parseJobSummarySections(core2.getInput("job-summary-content"))
   };
 }
 async function publishReportFile({ core: core2, github: github2, fs: fs2, octokit, inputs, resolvePath }, cucumberReportFile, remainingAnnotations) {
@@ -49113,10 +49128,12 @@ async function publishReportFile({ core: core2, github: github2, fs: fs2, octoki
     annotations
   });
   const checkTitle = checkRequests.create.output.title;
-  const jobSummaryContent = await collectJobSummaryContent(reportResult, inputs, resolvePath);
-  const jobSummaryDetails = buildJobSummaryDetails(jobSummaryContent, fileUrlBuilder(github2.context));
-  core2.info("Creating summary:\n" + summary);
-  await core2.summary.addHeading(checkTitle, 4).addRaw("\n" + summary + jobSummaryDetails).write();
+  const jobSummaryContent = await collectJobSummaryContent(reportResult, inputs, summary, resolvePath);
+  const jobSummary = buildJobSummary(jobSummaryContent, fileUrlBuilder(github2.context));
+  if (jobSummary !== "") {
+    core2.info("Creating job summary:\n" + jobSummary);
+    await core2.summary.addHeading(checkTitle, 4).addRaw("\n" + jobSummary).write();
+  }
   core2.info("Sending cucumber annotations");
   const checksReponse = await octokit.rest.checks.create(checkRequests.create);
   for (const updateRequest of checkRequests.updates) {

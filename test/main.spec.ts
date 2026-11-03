@@ -26,7 +26,8 @@ const DEFAULT_INPUTS: Record<string, string> = {
     'show-global-summary-report': 'false',
     'number-of-test-error-to-fail-job': '-1',
     'ignore-no-report-found': 'false',
-    'max-number-of-annotations': '50'
+    'max-number-of-annotations': '50',
+    'job-summary-content': 'counts,steps'
 };
 
 function fixture(name: string): string {
@@ -119,12 +120,23 @@ describe('main', () => {
                 assert.doesNotMatch(jobSummary, /##### Features/);
             });
 
-            it('should add the report of each feature to the job summary when show-global-summary-report is set', async () => {
-                const { core } = await runAction({ reportFiles, inputs: { 'show-global-summary-report': 'true' } });
+            it('should add the report of each feature to the job summary when the features section is set', async () => {
+                const { core } = await runAction({ reportFiles, inputs: { 'job-summary-content': 'counts,steps,features' } });
                 const jobSummary = core.summaryRaws.join('');
                 assert.match(jobSummary, /##### Features/);
                 assert.match(jobSummary, /Feature: <b>Test file<\/b>/);
                 assert.match(jobSummary, /Feature: <b>Test with background<\/b>/);
+            });
+
+            it('should not add the report of each feature to the job summary when only show-global-summary-report is set', async () => {
+                const { core } = await runAction({ reportFiles, inputs: { 'show-global-summary-report': 'true' } });
+                assert.doesNotMatch(core.summaryRaws.join(''), /##### Features/);
+            });
+
+            it('should not write the job summary without section', async () => {
+                const { core } = await runAction({ reportFiles, inputs: { 'job-summary-content': '' } });
+                assert.deepStrictEqual(core.summaryHeadings, []);
+                assert.deepStrictEqual(core.summaryRaws, []);
             });
 
             it('should fail the job when the error threshold is reached', async () => {
@@ -213,6 +225,12 @@ describe('main', () => {
         });
         assert.match(core.summaryRaws.join(''),
             /<a href="https:\/\/github\.com\/owner\/my-repo\/blob\/pr-head-sha\/src\/test\/resources\/features\/my%20feature\.feature#L2">src\/test\/resources\/features\/my feature\.feature#L2<\/a>/);
+    });
+
+    it('should fail the action with an unknown job summary section', async () => {
+        const { core, github } = await runAction({ reportFiles: [fixture('nominal.json')], inputs: { 'job-summary-content': 'counts,errors' } });
+        assert.deepStrictEqual(core.failures, ['Unknown job-summary-content section(s): errors. The possible values are: counts, steps, features.']);
+        assert.strictEqual(github.createRequests.length, 0);
     });
 
     it('should fail the action when a report cannot be read', async () => {

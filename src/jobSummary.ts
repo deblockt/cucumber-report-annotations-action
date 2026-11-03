@@ -1,6 +1,9 @@
 import { emojiByStatus, listStepsToAnnotate } from './annotations';
-import type { AnnotationInputs } from './annotations';
-import type { FileReport, PathResolver, ReportResult, StepData } from './types';
+import { JOB_SUMMARY_SECTIONS } from './types';
+import type { StepStatusInputs } from './annotations';
+import type { FileReport, Inputs, JobSummarySection, PathResolver, ReportResult, StepData } from './types';
+
+type JobSummaryInputs = StepStatusInputs & Pick<Inputs, 'jobSummaryContent'>;
 
 // the job summary is limited to 1MiB per step: the number of detailed steps is capped
 export const MAX_JOB_SUMMARY_STEPS = 100;
@@ -20,9 +23,24 @@ interface ResolvedFileReport {
 }
 
 export interface JobSummaryContent {
+    counts?: string;
     steps: ResolvedStep[];
     notShownStepNumber: number;
     fileReports: ResolvedFileReport[];
+}
+
+function isJobSummarySection(section: string): section is JobSummarySection {
+    return (JOB_SUMMARY_SECTIONS as readonly string[]).includes(section);
+}
+
+// reads the comma separated list of sections of the job-summary-content input
+export function parseJobSummarySections(value: string): JobSummarySection[] {
+    const sections = value.split(',').map(section => section.trim()).filter(section => section !== '');
+    const unknownSections = sections.filter(section => !isJobSummarySection(section));
+    if (unknownSections.length > 0) {
+        throw new Error(`Unknown job-summary-content section(s): ${unknownSections.join(', ')}. The possible values are: ${JOB_SUMMARY_SECTIONS.join(', ')}.`);
+    }
+    return sections.filter(isJobSummarySection);
 }
 
 function escapeHtml(text: string): string {
@@ -53,7 +71,7 @@ function buildStepsSection(content: JobSummaryContent, fileUrl: FileUrlBuilder):
     const notShown = content.notShownStepNumber > 0
         ? `\n\n${content.notShownStepNumber} other step(s) not shown: only the first ${MAX_JOB_SUMMARY_STEPS} steps are detailed.`
         : '';
-    return '\n\n##### Steps in error\n\n'
+    return '##### Steps in error\n\n'
         + content.steps.map(step => buildStepDetail(step, fileUrl)).join('\n')
         + notShown;
 }
@@ -71,23 +89,27 @@ function buildFileReportsSection(content: JobSummaryContent, fileUrl: FileUrlBui
     if (content.fileReports.length === 0) {
         return '';
     }
-    return '\n\n##### Features\n\n'
+    return '##### Features\n\n'
         + content.fileReports.map(fileReport => buildFileReportDetail(fileReport, fileUrl)).join('\n');
 }
 
-// lists the steps and features detailed in the job summary, with their path in the repository
-export async function collectJobSummaryContent(reportResult: ReportResult, inputs: AnnotationInputs, resolvePath: PathResolver): Promise<JobSummaryContent> {
-    const steps = listStepsToAnnotate(reportResult, inputs);
+// lists the content of the sections of the job summary, with the path of the feature files in the repository
+export async function collectJobSummaryContent(reportResult: ReportResult, inputs: JobSummaryInputs, summary: string, resolvePath: PathResolver): Promise<JobSummaryContent> {
+    const sections = inputs.jobSummaryContent;
+    const steps = sections.includes('steps') ? listStepsToAnnotate(reportResult, inputs) : [];
     const shownSteps = steps.slice(0, MAX_JOB_SUMMARY_STEPS);
-    const fileReports = inputs.showGlobalSummaryReport ? reportResult.listAllScenarioByFile : [];
+    const fileReports = sections.includes('features') ? reportResult.listAllScenarioByFile : [];
     return {
+        counts: sections.includes('counts') ? summary : undefined,
         steps: await Promise.all(shownSteps.map(async ({ step, errorType }) => ({ step, errorType, path: await resolvePath(step.file) }))),
         notShownStepNumber: steps.length - shownSteps.length,
         fileReports: await Promise.all(fileReports.map(async fileReport => ({ fileReport, path: await resolvePath(fileReport.file) })))
     };
 }
 
-// details of the failed, undefined and pending steps, and the report of each feature, for the job summary
-export function buildJobSummaryDetails(content: JobSummaryContent, fileUrl: FileUrlBuilder): string {
-    return buildStepsSection(content, fileUrl) + buildFileReportsSection(content, fileUrl);
+// the job summary content: counts, details of the steps in error and report of each feature
+export function buildJobSummary(content: JobSummaryContent, fileUrl: FileUrlBuilder): string {
+    return [content.counts ?? '', buildStepsSection(content, fileUrl), buildFileReportsSection(content, fileUrl)]
+        .filter(section => section !== '')
+        .join('\n\n');
 }

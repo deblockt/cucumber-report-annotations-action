@@ -5,7 +5,7 @@ import { buildAnnotations } from './annotations';
 import { setOutputs } from './outputs';
 import { buildSummaryCounts, buildSummary } from './summary';
 import { buildCheckRequests, headSha, shouldFailJob } from './check';
-import { buildJobSummaryDetails, collectJobSummaryContent } from './jobSummary';
+import { buildJobSummary, collectJobSummaryContent, parseJobSummarySections } from './jobSummary';
 import type { FileUrlBuilder } from './jobSummary';
 import type { Core, Dependencies, GitHubContext, Inputs, Octokit, PathResolver, ReportReader } from './types';
 
@@ -30,7 +30,8 @@ function readInputs(core: Core): Inputs {
         numberOfTestErrorToFailJob: Number(core.getInput('number-of-test-error-to-fail-job')),
         showGlobalSummaryReport: core.getBooleanInput('show-global-summary-report'),
         ignoreNoReportFound: core.getBooleanInput('ignore-no-report-found'),
-        maxNumberOfAnnotations: Number(core.getInput('max-number-of-annotations'))
+        maxNumberOfAnnotations: Number(core.getInput('max-number-of-annotations')),
+        jobSummaryContent: parseJobSummarySections(core.getInput('job-summary-content'))
     };
 }
 
@@ -54,14 +55,15 @@ async function publishReportFile({ core, github, fs, octokit, inputs, resolvePat
     });
     const checkTitle = checkRequests.create.output.title;
 
-    const jobSummaryContent = await collectJobSummaryContent(reportResult, inputs, resolvePath);
-    const jobSummaryDetails = buildJobSummaryDetails(jobSummaryContent, fileUrlBuilder(github.context));
-
-    core.info('Creating summary:\n' + summary);
-    await core.summary
-      .addHeading(checkTitle, 4)
-      .addRaw("\n" + summary + jobSummaryDetails)
-      .write()
+    const jobSummaryContent = await collectJobSummaryContent(reportResult, inputs, summary, resolvePath);
+    const jobSummary = buildJobSummary(jobSummaryContent, fileUrlBuilder(github.context));
+    if (jobSummary !== '') {
+        core.info('Creating job summary:\n' + jobSummary);
+        await core.summary
+          .addHeading(checkTitle, 4)
+          .addRaw("\n" + jobSummary)
+          .write()
+    }
 
     core.info('Sending cucumber annotations');
     const checksReponse = await octokit.rest.checks.create(checkRequests.create);

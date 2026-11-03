@@ -39,9 +39,13 @@ inputs:
     required: true
     default: 'true'
   show-global-summary-report:
-    description: "if it is set to true, a report of the scenarios of each feature file will be displayed, in the check annotations and in the job summary."
+    description: "if it is set to true, an annotation listing the scenarios of each feature file will be added to the check."
     required: true
     default: 'false'
+  job-summary-content:
+    description: "comma separated list of the sections written in the job summary. 'counts': the number of scenarios and steps by status, 'steps': the details of the failed steps (and of the undefined and pending steps when their annotation status is set), 'features': the scenarios of each feature file. An empty value disables the job summary."
+    required: false
+    default: 'counts,steps'
   number-of-test-error-to-fail-job:
     description: "indicate the number of test in error to fail the build. If the value is -1 this action will never fail the build."
     required: true

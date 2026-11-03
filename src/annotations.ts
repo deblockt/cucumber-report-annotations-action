@@ -1,6 +1,7 @@
 import type { Annotation, FileReport, Inputs, PathResolver, ReportResult, ScenarioStatus, StepData } from './types';
 
-export type AnnotationInputs = Pick<Inputs, 'annotationStatusOnError' | 'annotationStatusOnUndefined' | 'annotationStatusOnPending' | 'showGlobalSummaryReport'>;
+export type StepStatusInputs = Pick<Inputs, 'annotationStatusOnError' | 'annotationStatusOnUndefined' | 'annotationStatusOnPending'>;
+type AnnotationInputs = StepStatusInputs & Pick<Inputs, 'showGlobalSummaryReport'>;
 
 interface StepToAnnotate {
     step: StepData;
@@ -57,7 +58,7 @@ async function buildReportDetailAnnotation(fileReport: FileReport, resolvePath: 
     };
 }
 
-export function listStepsToAnnotate(reportResult: ReportResult, { annotationStatusOnError, annotationStatusOnUndefined, annotationStatusOnPending }: AnnotationInputs): StepToAnnotate[] {
+export function listStepsToAnnotate(reportResult: ReportResult, { annotationStatusOnError, annotationStatusOnUndefined, annotationStatusOnPending }: StepStatusInputs): StepToAnnotate[] {
     const stepsWithType = (steps: StepData[], status: string, errorType: string) => steps.map(step => ({ step, status, errorType }));
     return [
         ...stepsWithType(reportResult.failedSteps, annotationStatusOnError, 'Failed'),
