@@ -1,32 +1,23 @@
 import { emojiByStatus, listStepsToAnnotate } from './annotations';
-import { JOB_SUMMARY_SECTIONS } from './types';
 import type { StepStatusInputs } from './annotations';
-import type { FileReport, Inputs, JobSummarySection, PathResolver, ReportResult, StepData } from './types';
+import type { FileReport, PathResolver, ReportResult, StepData } from './types';
 
-type JobSummaryInputs = StepStatusInputs & Pick<Inputs, 'jobSummaryContent'>;
+// sections that can be written in the job summary
+export const JOB_SUMMARY_SECTIONS = ['counts', 'steps', 'features'] as const;
+export type JobSummarySection = typeof JOB_SUMMARY_SECTIONS[number];
 
 // the job summary is limited to 1MiB per step: the number of detailed steps is capped
 export const MAX_JOB_SUMMARY_STEPS = 100;
 
 // builds the url of a file of the repository, at the commit of the check
-export type FileUrlBuilder = (path: string, line?: number) => string;
+export type FileUrlBuilder = (path: string) => string;
 
-interface ResolvedStep {
-    step: StepData;
-    errorType: string;
-    path?: string;
-}
-
-interface ResolvedFileReport {
-    fileReport: FileReport;
-    path?: string;
-}
-
-export interface JobSummaryContent {
-    counts?: string;
-    steps: ResolvedStep[];
-    notShownStepNumber: number;
-    fileReports: ResolvedFileReport[];
+export interface JobSummaryParameters {
+    reportResult: ReportResult;
+    inputs: StepStatusInputs & { jobSummaryContent: JobSummarySection[] };
+    counts: string;
+    resolvePath: PathResolver;
+    fileUrl: FileUrlBuilder;
 }
 
 function isJobSummarySection(section: string): section is JobSummarySection {
@@ -51,65 +42,57 @@ function escapeHtml(text: string): string {
         .replace(/"/g, '&quot;');
 }
 
-function fileLink(file: string, path: string | undefined, fileUrl: FileUrlBuilder, line?: number): string {
-    const label = escapeHtml((path ?? file) + (line ? `#L${line}` : ''));
-    return path ? `<a href="${escapeHtml(fileUrl(path, line))}">${label}</a>` : `<code>${label}</code>`;
+// link to the feature file in the repository, or its raw path when it is not found
+async function fileLink(file: string, { resolvePath, fileUrl }: JobSummaryParameters, line?: number): Promise<string> {
+    const path = await resolvePath(file);
+    const anchor = line ? `#L${line}` : '';
+    const label = escapeHtml((path ?? file) + anchor);
+    return path ? `<a href="${escapeHtml(fileUrl(path) + anchor)}">${label}</a>` : `<code>${label}</code>`;
 }
 
-function buildStepDetail({ step, errorType, path }: ResolvedStep, fileUrl: FileUrlBuilder): string {
-    const title = `<b>${escapeHtml(step.title)}</b> ${errorType.toLowerCase()} on ${fileLink(step.file, path, fileUrl, step.line)}`;
+function details(summary: string, body: string): string {
+    return `<details><summary>${summary}</summary>\n\n${body}\n\n</details>`;
+}
+
+function section(heading: string, items: string[], footer = ''): string {
+    return items.length === 0 ? '' : `##### ${heading}\n\n${items.join('\n')}${footer}`;
+}
+
+async function buildStepDetail(step: StepData, errorType: string, parameters: JobSummaryParameters): Promise<string> {
+    const title = `<b>${escapeHtml(step.title)}</b> ${errorType.toLowerCase()} on ${await fileLink(step.file, parameters, step.line)}`;
     const error = step.error ? `\n<pre>${escapeHtml(step.error)}</pre>` : '';
-    return `<details><summary>${title}</summary>\n\n`
-        + `Step: <code>${escapeHtml(step.step)}</code>${error}\n\n`
-        + '</details>';
+    return details(title, `Step: <code>${escapeHtml(step.step)}</code>${error}`);
 }
 
-function buildStepsSection(content: JobSummaryContent, fileUrl: FileUrlBuilder): string {
-    if (content.steps.length === 0) {
-        return '';
-    }
-    const notShown = content.notShownStepNumber > 0
-        ? `\n\n${content.notShownStepNumber} other step(s) not shown: only the first ${MAX_JOB_SUMMARY_STEPS} steps are detailed.`
+async function buildStepsSection(parameters: JobSummaryParameters): Promise<string> {
+    const steps = listStepsToAnnotate(parameters.reportResult, parameters.inputs);
+    const shownSteps = steps.slice(0, MAX_JOB_SUMMARY_STEPS);
+    const notShown = steps.length > shownSteps.length
+        ? `\n\n${steps.length - shownSteps.length} other step(s) not shown: only the first ${MAX_JOB_SUMMARY_STEPS} steps are detailed.`
         : '';
-    return '##### Steps in error\n\n'
-        + content.steps.map(step => buildStepDetail(step, fileUrl)).join('\n')
-        + notShown;
+    const items = await Promise.all(shownSteps.map(({ step, errorType }) => buildStepDetail(step, errorType, parameters)));
+    return section('Steps in error', items, notShown);
 }
 
-function buildFileReportDetail({ fileReport, path }: ResolvedFileReport, fileUrl: FileUrlBuilder): string {
+async function buildFileReportDetail(fileReport: FileReport, parameters: JobSummaryParameters): Promise<string> {
     const scenarios = fileReport.scenarios
         .map(scenario => `<li>${emojiByStatus(scenario.status)} Scenario: ${escapeHtml(scenario.name)}</li>`)
         .join('');
-    return `<details><summary>Feature: <b>${escapeHtml(fileReport.name)}</b> (${fileLink(fileReport.file, path, fileUrl)})</summary>\n\n`
-        + `<ul>${scenarios}</ul>\n\n`
-        + '</details>';
+    return details(`Feature: <b>${escapeHtml(fileReport.name)}</b> (${await fileLink(fileReport.file, parameters)})`, `<ul>${scenarios}</ul>`);
 }
 
-function buildFileReportsSection(content: JobSummaryContent, fileUrl: FileUrlBuilder): string {
-    if (content.fileReports.length === 0) {
-        return '';
-    }
-    return '##### Features\n\n'
-        + content.fileReports.map(fileReport => buildFileReportDetail(fileReport, fileUrl)).join('\n');
+async function buildFileReportsSection(parameters: JobSummaryParameters): Promise<string> {
+    const items = await Promise.all(parameters.reportResult.listAllScenarioByFile.map(fileReport => buildFileReportDetail(fileReport, parameters)));
+    return section('Features', items);
 }
 
-// lists the content of the sections of the job summary, with the path of the feature files in the repository
-export async function collectJobSummaryContent(reportResult: ReportResult, inputs: JobSummaryInputs, summary: string, resolvePath: PathResolver): Promise<JobSummaryContent> {
-    const sections = inputs.jobSummaryContent;
-    const steps = sections.includes('steps') ? listStepsToAnnotate(reportResult, inputs) : [];
-    const shownSteps = steps.slice(0, MAX_JOB_SUMMARY_STEPS);
-    const fileReports = sections.includes('features') ? reportResult.listAllScenarioByFile : [];
-    return {
-        counts: sections.includes('counts') ? summary : undefined,
-        steps: await Promise.all(shownSteps.map(async ({ step, errorType }) => ({ step, errorType, path: await resolvePath(step.file) }))),
-        notShownStepNumber: steps.length - shownSteps.length,
-        fileReports: await Promise.all(fileReports.map(async fileReport => ({ fileReport, path: await resolvePath(fileReport.file) })))
-    };
-}
-
-// the job summary content: counts, details of the steps in error and report of each feature
-export function buildJobSummary(content: JobSummaryContent, fileUrl: FileUrlBuilder): string {
-    return [content.counts ?? '', buildStepsSection(content, fileUrl), buildFileReportsSection(content, fileUrl)]
-        .filter(section => section !== '')
-        .join('\n\n');
+// the sections of job-summary-content for a report, or an empty string when there is nothing to write
+export async function buildJobSummary(parameters: JobSummaryParameters): Promise<string> {
+    const sections = parameters.inputs.jobSummaryContent;
+    const content = [
+        sections.includes('counts') ? parameters.counts : '',
+        sections.includes('steps') ? await buildStepsSection(parameters) : '',
+        sections.includes('features') ? await buildFileReportsSection(parameters) : ''
+    ];
+    return content.filter(part => part !== '').join('\n\n');
 }

@@ -1,7 +1,8 @@
 import * as assert from 'assert';
-import { buildJobSummary, collectJobSummaryContent, MAX_JOB_SUMMARY_STEPS, parseJobSummarySections } from '../src/jobSummary';
+import { buildJobSummary, MAX_JOB_SUMMARY_STEPS, parseJobSummarySections } from '../src/jobSummary';
+import type { JobSummarySection } from '../src/jobSummary';
 import { EMPTY_GLOBAL_INFO } from '../src/types';
-import type { JobSummarySection, ReportResult, StepData } from '../src/types';
+import type { ReportResult, StepData } from '../src/types';
 
 const inputs = {
     annotationStatusOnError: 'failure',
@@ -28,10 +29,10 @@ function reportResult(overrides: Partial<ReportResult> = {}): ReportResult {
 }
 
 const resolvePath = async (file: string) => file.startsWith('unknown') ? undefined : 'src/test/' + file;
-const fileUrl = (path: string, line?: number) => `https://github.com/owner/repo/blob/sha/${path}${line ? `#L${line}` : ''}`;
+const fileUrl = (path: string) => `https://github.com/owner/repo/blob/sha/${path}`;
 
 async function details(result: ReportResult, overrides: Partial<typeof inputs> = {}): Promise<string> {
-    return buildJobSummary(await collectJobSummaryContent(result, { ...inputs, ...overrides }, COUNTS, resolvePath), fileUrl);
+    return buildJobSummary({ reportResult: result, inputs: { ...inputs, ...overrides }, counts: COUNTS, resolvePath, fileUrl });
 }
 
 describe('jobSummary', () => {

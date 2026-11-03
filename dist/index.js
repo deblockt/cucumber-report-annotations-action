@@ -48472,7 +48472,6 @@ var EMPTY_GLOBAL_INFO = {
   succeedStepsNumber: 0,
   pendingStepNumber: 0
 };
-var JOB_SUMMARY_SECTIONS = ["counts", "steps", "features"];
 
 // src/reportReader-json.ts
 function reader(reportString) {
@@ -48842,23 +48841,30 @@ function findBestMatch(featureFiles, file) {
 }
 function createFileMatcher({ core: core2, glob: glob2, workspace }) {
   let featureFiles;
-  const warnedFiles = /* @__PURE__ */ new Set();
+  const resolvedFiles = /* @__PURE__ */ new Map();
   async function listFeatureFiles() {
     const globber = await glob2.create("**/*.feature", {
       followSymbolicLinks: false
     });
     return (await globber.glob()).map((featureFile) => toRelativePath(featureFile, workspace)).filter((relativePath) => !isInNodeModules(relativePath));
   }
-  return async (file) => {
+  async function resolve(file) {
     featureFiles ??= listFeatureFiles();
     const bestMatch = findBestMatch(await featureFiles, file);
     if (bestMatch) {
       core2.debug(`Best path found for ${file} is ${bestMatch}.`);
-    } else if (!warnedFiles.has(file)) {
-      warnedFiles.add(file);
+    } else {
       core2.warning(`No file matching "${file}" was found in the project.`);
     }
     return bestMatch;
+  }
+  return (file) => {
+    let resolvedFile = resolvedFiles.get(file);
+    if (!resolvedFile) {
+      resolvedFile = resolve(file);
+      resolvedFiles.set(file, resolvedFile);
+    }
+    return resolvedFile;
   };
 }
 
@@ -49023,13 +49029,14 @@ function shouldFailJob(errorCount, { numberOfTestErrorToFailJob }) {
 }
 
 // src/jobSummary.ts
+var JOB_SUMMARY_SECTIONS = ["counts", "steps", "features"];
 var MAX_JOB_SUMMARY_STEPS = 100;
-function isJobSummarySection(section) {
-  return JOB_SUMMARY_SECTIONS.includes(section);
+function isJobSummarySection(section2) {
+  return JOB_SUMMARY_SECTIONS.includes(section2);
 }
 function parseJobSummarySections(value) {
-  const sections = value.split(",").map((section) => section.trim()).filter((section) => section !== "");
-  const unknownSections = sections.filter((section) => !isJobSummarySection(section));
+  const sections = value.split(",").map((section2) => section2.trim()).filter((section2) => section2 !== "");
+  const unknownSections = sections.filter((section2) => !isJobSummarySection(section2));
   if (unknownSections.length > 0) {
     throw new Error(`Unknown job-summary-content section(s): ${unknownSections.join(", ")}. The possible values are: ${JOB_SUMMARY_SECTIONS.join(", ")}.`);
   }
@@ -49038,57 +49045,55 @@ function parseJobSummarySections(value) {
 function escapeHtml(text) {
   return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
-function fileLink(file, path3, fileUrl, line) {
-  const label = escapeHtml((path3 ?? file) + (line ? `#L${line}` : ""));
-  return path3 ? `<a href="${escapeHtml(fileUrl(path3, line))}">${label}</a>` : `<code>${label}</code>`;
+async function fileLink(file, { resolvePath, fileUrl }, line) {
+  const path3 = await resolvePath(file);
+  const anchor = line ? `#L${line}` : "";
+  const label = escapeHtml((path3 ?? file) + anchor);
+  return path3 ? `<a href="${escapeHtml(fileUrl(path3) + anchor)}">${label}</a>` : `<code>${label}</code>`;
 }
-function buildStepDetail({ step, errorType, path: path3 }, fileUrl) {
-  const title = `<b>${escapeHtml(step.title)}</b> ${errorType.toLowerCase()} on ${fileLink(step.file, path3, fileUrl, step.line)}`;
+function details(summary, body) {
+  return `<details><summary>${summary}</summary>
+
+${body}
+
+</details>`;
+}
+function section(heading, items, footer = "") {
+  return items.length === 0 ? "" : `##### ${heading}
+
+${items.join("\n")}${footer}`;
+}
+async function buildStepDetail(step, errorType, parameters) {
+  const title = `<b>${escapeHtml(step.title)}</b> ${errorType.toLowerCase()} on ${await fileLink(step.file, parameters, step.line)}`;
   const error = step.error ? `
 <pre>${escapeHtml(step.error)}</pre>` : "";
-  return `<details><summary>${title}</summary>
-
-Step: <code>${escapeHtml(step.step)}</code>${error}
-
-</details>`;
+  return details(title, `Step: <code>${escapeHtml(step.step)}</code>${error}`);
 }
-function buildStepsSection(content, fileUrl) {
-  if (content.steps.length === 0) {
-    return "";
-  }
-  const notShown = content.notShownStepNumber > 0 ? `
-
-${content.notShownStepNumber} other step(s) not shown: only the first ${MAX_JOB_SUMMARY_STEPS} steps are detailed.` : "";
-  return "##### Steps in error\n\n" + content.steps.map((step) => buildStepDetail(step, fileUrl)).join("\n") + notShown;
-}
-function buildFileReportDetail({ fileReport, path: path3 }, fileUrl) {
-  const scenarios = fileReport.scenarios.map((scenario) => `<li>${emojiByStatus(scenario.status)} Scenario: ${escapeHtml(scenario.name)}</li>`).join("");
-  return `<details><summary>Feature: <b>${escapeHtml(fileReport.name)}</b> (${fileLink(fileReport.file, path3, fileUrl)})</summary>
-
-<ul>${scenarios}</ul>
-
-</details>`;
-}
-function buildFileReportsSection(content, fileUrl) {
-  if (content.fileReports.length === 0) {
-    return "";
-  }
-  return "##### Features\n\n" + content.fileReports.map((fileReport) => buildFileReportDetail(fileReport, fileUrl)).join("\n");
-}
-async function collectJobSummaryContent(reportResult, inputs, summary, resolvePath) {
-  const sections = inputs.jobSummaryContent;
-  const steps = sections.includes("steps") ? listStepsToAnnotate(reportResult, inputs) : [];
+async function buildStepsSection(parameters) {
+  const steps = listStepsToAnnotate(parameters.reportResult, parameters.inputs);
   const shownSteps = steps.slice(0, MAX_JOB_SUMMARY_STEPS);
-  const fileReports = sections.includes("features") ? reportResult.listAllScenarioByFile : [];
-  return {
-    counts: sections.includes("counts") ? summary : void 0,
-    steps: await Promise.all(shownSteps.map(async ({ step, errorType }) => ({ step, errorType, path: await resolvePath(step.file) }))),
-    notShownStepNumber: steps.length - shownSteps.length,
-    fileReports: await Promise.all(fileReports.map(async (fileReport) => ({ fileReport, path: await resolvePath(fileReport.file) })))
-  };
+  const notShown = steps.length > shownSteps.length ? `
+
+${steps.length - shownSteps.length} other step(s) not shown: only the first ${MAX_JOB_SUMMARY_STEPS} steps are detailed.` : "";
+  const items = await Promise.all(shownSteps.map(({ step, errorType }) => buildStepDetail(step, errorType, parameters)));
+  return section("Steps in error", items, notShown);
 }
-function buildJobSummary(content, fileUrl) {
-  return [content.counts ?? "", buildStepsSection(content, fileUrl), buildFileReportsSection(content, fileUrl)].filter((section) => section !== "").join("\n\n");
+async function buildFileReportDetail(fileReport, parameters) {
+  const scenarios = fileReport.scenarios.map((scenario) => `<li>${emojiByStatus(scenario.status)} Scenario: ${escapeHtml(scenario.name)}</li>`).join("");
+  return details(`Feature: <b>${escapeHtml(fileReport.name)}</b> (${await fileLink(fileReport.file, parameters)})`, `<ul>${scenarios}</ul>`);
+}
+async function buildFileReportsSection(parameters) {
+  const items = await Promise.all(parameters.reportResult.listAllScenarioByFile.map((fileReport) => buildFileReportDetail(fileReport, parameters)));
+  return section("Features", items);
+}
+async function buildJobSummary(parameters) {
+  const sections = parameters.inputs.jobSummaryContent;
+  const content = [
+    sections.includes("counts") ? parameters.counts : "",
+    sections.includes("steps") ? await buildStepsSection(parameters) : "",
+    sections.includes("features") ? await buildFileReportsSection(parameters) : ""
+  ];
+  return content.filter((part) => part !== "").join("\n\n");
 }
 
 // src/main.ts
@@ -49128,10 +49133,10 @@ async function publishReportFile({ core: core2, github: github2, fs: fs2, octoki
     annotations
   });
   const checkTitle = checkRequests.create.output.title;
-  const jobSummaryContent = await collectJobSummaryContent(reportResult, inputs, summary, resolvePath);
-  const jobSummary = buildJobSummary(jobSummaryContent, fileUrlBuilder(github2.context));
+  core2.info("Creating summary:\n" + summary);
+  const jobSummary = await buildJobSummary({ reportResult, inputs, counts: summary, resolvePath, fileUrl: fileUrlBuilder(github2.context) });
   if (jobSummary !== "") {
-    core2.info("Creating job summary:\n" + jobSummary);
+    core2.debug("Job summary:\n" + jobSummary);
     await core2.summary.addHeading(checkTitle, 4).addRaw("\n" + jobSummary).write();
   }
   core2.info("Sending cucumber annotations");
@@ -49147,7 +49152,7 @@ async function publishReportFile({ core: core2, github: github2, fs: fs2, octoki
 function fileUrlBuilder(context) {
   const { serverUrl, repo: { owner, repo } } = context;
   const sha = headSha(context);
-  return (path3, line) => `${serverUrl}/${owner}/${repo}/blob/${sha}/${path3.split("/").map(encodeURIComponent).join("/")}${line ? `#L${line}` : ""}`;
+  return (path3) => `${serverUrl}/${owner}/${repo}/blob/${sha}/${path3.split("/").map(encodeURIComponent).join("/")}`;
 }
 function errorMessage(error) {
   return error instanceof Error ? error.message : String(error);

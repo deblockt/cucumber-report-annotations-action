@@ -5,7 +5,7 @@ import { buildAnnotations } from './annotations';
 import { setOutputs } from './outputs';
 import { buildSummaryCounts, buildSummary } from './summary';
 import { buildCheckRequests, headSha, shouldFailJob } from './check';
-import { buildJobSummary, collectJobSummaryContent, parseJobSummarySections } from './jobSummary';
+import { buildJobSummary, parseJobSummarySections } from './jobSummary';
 import type { FileUrlBuilder } from './jobSummary';
 import type { Core, Dependencies, GitHubContext, Inputs, Octokit, PathResolver, ReportReader } from './types';
 
@@ -55,10 +55,10 @@ async function publishReportFile({ core, github, fs, octokit, inputs, resolvePat
     });
     const checkTitle = checkRequests.create.output.title;
 
-    const jobSummaryContent = await collectJobSummaryContent(reportResult, inputs, summary, resolvePath);
-    const jobSummary = buildJobSummary(jobSummaryContent, fileUrlBuilder(github.context));
+    core.info('Creating summary:\n' + summary);
+    const jobSummary = await buildJobSummary({ reportResult, inputs, counts: summary, resolvePath, fileUrl: fileUrlBuilder(github.context) });
     if (jobSummary !== '') {
-        core.info('Creating job summary:\n' + jobSummary);
+        core.debug('Job summary:\n' + jobSummary);
         await core.summary
           .addHeading(checkTitle, 4)
           .addRaw("\n" + jobSummary)
@@ -80,7 +80,7 @@ async function publishReportFile({ core, github, fs, octokit, inputs, resolvePat
 function fileUrlBuilder(context: GitHubContext): FileUrlBuilder {
     const { serverUrl, repo: { owner, repo } } = context;
     const sha = headSha(context);
-    return (path, line) => `${serverUrl}/${owner}/${repo}/blob/${sha}/${path.split('/').map(encodeURIComponent).join('/')}${line ? `#L${line}` : ''}`;
+    return path => `${serverUrl}/${owner}/${repo}/blob/${sha}/${path.split('/').map(encodeURIComponent).join('/')}`;
 }
 
 function errorMessage(error: unknown): string {
