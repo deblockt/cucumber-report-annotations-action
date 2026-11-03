@@ -58,10 +58,11 @@ function section(heading: string, items: string[], footer = ''): string {
     return items.length === 0 ? '' : `##### ${heading}\n\n${items.join('\n')}${footer}`;
 }
 
+// the link to the feature file is in the body: a link in the <summary> would be opened instead of expanding the details
 async function buildStepDetail(step: StepData, errorType: string, parameters: JobSummaryParameters): Promise<string> {
-    const title = `<b>${escapeHtml(step.title)}</b> ${errorType.toLowerCase()} on ${await fileLink(step.file, parameters, step.line)}`;
+    const title = `<b>${escapeHtml(step.title)}</b> ${errorType.toLowerCase()}`;
     const error = step.error ? `\n<pre>${escapeHtml(step.error)}</pre>` : '';
-    return details(title, `Step: <code>${escapeHtml(step.step)}</code>${error}`);
+    return details(title, `File: ${await fileLink(step.file, parameters, step.line)}<br>\nStep: <code>${escapeHtml(step.step)}</code>${error}`);
 }
 
 async function buildStepsSection(parameters: JobSummaryParameters): Promise<string> {
@@ -78,7 +79,7 @@ async function buildFileReportDetail(fileReport: FileReport, parameters: JobSumm
     const scenarios = fileReport.scenarios
         .map(scenario => `<li>${emojiByStatus(scenario.status)} Scenario: ${escapeHtml(scenario.name)}</li>`)
         .join('');
-    return details(`Feature: <b>${escapeHtml(fileReport.name)}</b> (${await fileLink(fileReport.file, parameters)})`, `<ul>${scenarios}</ul>`);
+    return details(`Feature: <b>${escapeHtml(fileReport.name)}</b>`, `File: ${await fileLink(fileReport.file, parameters)}\n<ul>${scenarios}</ul>`);
 }
 
 async function buildFileReportsSection(parameters: JobSummaryParameters): Promise<string> {

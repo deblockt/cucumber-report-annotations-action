@@ -48877,8 +48877,10 @@ function emojiByStatus(status) {
       return "\u274C";
     case "pending":
       return "\u231B";
-    default:
-      return "-";
+    case "undefined":
+      return "\u2753";
+    case "skipped":
+      return "\u23ED\uFE0F";
   }
 }
 async function buildStepAnnotation(cucumberError, status, errorType, resolvePath) {
@@ -49064,10 +49066,11 @@ function section(heading, items, footer = "") {
 ${items.join("\n")}${footer}`;
 }
 async function buildStepDetail(step, errorType, parameters) {
-  const title = `<b>${escapeHtml(step.title)}</b> ${errorType.toLowerCase()} on ${await fileLink(step.file, parameters, step.line)}`;
+  const title = `<b>${escapeHtml(step.title)}</b> ${errorType.toLowerCase()}`;
   const error = step.error ? `
 <pre>${escapeHtml(step.error)}</pre>` : "";
-  return details(title, `Step: <code>${escapeHtml(step.step)}</code>${error}`);
+  return details(title, `File: ${await fileLink(step.file, parameters, step.line)}<br>
+Step: <code>${escapeHtml(step.step)}</code>${error}`);
 }
 async function buildStepsSection(parameters) {
   const steps = listStepsToAnnotate(parameters.reportResult, parameters.inputs);
@@ -49080,7 +49083,8 @@ ${steps.length - shownSteps.length} other step(s) not shown: only the first ${MA
 }
 async function buildFileReportDetail(fileReport, parameters) {
   const scenarios = fileReport.scenarios.map((scenario) => `<li>${emojiByStatus(scenario.status)} Scenario: ${escapeHtml(scenario.name)}</li>`).join("");
-  return details(`Feature: <b>${escapeHtml(fileReport.name)}</b> (${await fileLink(fileReport.file, parameters)})`, `<ul>${scenarios}</ul>`);
+  return details(`Feature: <b>${escapeHtml(fileReport.name)}</b>`, `File: ${await fileLink(fileReport.file, parameters)}
+<ul>${scenarios}</ul>`);
 }
 async function buildFileReportsSection(parameters) {
   const items = await Promise.all(parameters.reportResult.listAllScenarioByFile.map((fileReport) => buildFileReportDetail(fileReport, parameters)));

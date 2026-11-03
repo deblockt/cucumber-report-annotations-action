@@ -76,14 +76,15 @@ describe('jobSummary', () => {
         const summary = await details(reportResult({ failedSteps: [step('Scenario KO')] }));
         assert.strictEqual(summary,
             '##### Steps in error\n\n'
-            + '<details><summary><b>Scenario KO</b> failed on <a href="https://github.com/owner/repo/blob/sha/src/test/features/a.feature#L3">src/test/features/a.feature#L3</a></summary>\n\n'
+            + '<details><summary><b>Scenario KO</b> failed</summary>\n\n'
+            + 'File: <a href="https://github.com/owner/repo/blob/sha/src/test/features/a.feature#L3">src/test/features/a.feature#L3</a><br>\n'
             + 'Step: <code>a failing step</code>\n<pre>boom</pre>\n\n'
             + '</details>');
     });
 
     it('should not link a feature file that is not found in the repository', async () => {
         const summary = await details(reportResult({ failedSteps: [step('Scenario KO', { file: 'unknown.feature' })] }));
-        assert.match(summary, /failed on <code>unknown\.feature#L3<\/code>/);
+        assert.match(summary, /File: <code>unknown\.feature#L3<\/code>/);
     });
 
     it('should escape the html of the report', async () => {
@@ -96,8 +97,8 @@ describe('jobSummary', () => {
         const result = reportResult({ undefinedSteps: [step('Undefined scenario')], pendingSteps: [step('Pending scenario')] });
         assert.strictEqual(await details(result), '');
         const summary = await details(result, { annotationStatusOnUndefined: 'warning', annotationStatusOnPending: 'notice' });
-        assert.match(summary, /<b>Undefined scenario<\/b> undefined on /);
-        assert.match(summary, /<b>Pending scenario<\/b> pending on /);
+        assert.match(summary, /<b>Undefined scenario<\/b> undefined<\/summary>/);
+        assert.match(summary, /<b>Pending scenario<\/b> pending<\/summary>/);
     });
 
     it('should limit the number of detailed steps', async () => {
@@ -118,7 +119,8 @@ describe('jobSummary', () => {
         assert.strictEqual(await details(result), '');
         assert.strictEqual(await details(result, { jobSummaryContent: ['features'] }),
             '##### Features\n\n'
-            + '<details><summary>Feature: <b>Feature A</b> (<a href="https://github.com/owner/repo/blob/sha/src/test/features/a.feature">src/test/features/a.feature</a>)</summary>\n\n'
+            + '<details><summary>Feature: <b>Feature A</b></summary>\n\n'
+            + 'File: <a href="https://github.com/owner/repo/blob/sha/src/test/features/a.feature">src/test/features/a.feature</a>\n'
             + '<ul><li>✅ Scenario: OK</li><li>❌ Scenario: KO</li></ul>\n\n'
             + '</details>');
     });

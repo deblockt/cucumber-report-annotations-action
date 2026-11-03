@@ -23,8 +23,10 @@ export function emojiByStatus(status: ScenarioStatus): string {
             return '❌'
         case 'pending':
             return '⌛';
-        default:
-            return '-';
+        case 'undefined':
+            return '❓';
+        case 'skipped':
+            return '⏭️';
     }
 }
 

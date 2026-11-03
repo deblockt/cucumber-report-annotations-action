@@ -115,8 +115,8 @@ describe('main', () => {
                 const jobSummary = core.summaryRaws.join('');
                 assert.match(jobSummary, /^\n    7 Scenarios \(2 failed, 3 undefined, 1 pending, 1 passed\)\n/);
                 assert.match(jobSummary, /##### Steps in error/);
-                assert.match(jobSummary, /<b>Scenario KO<\/b> failed on /);
-                assert.match(jobSummary, /<b>This scenario will fail because of background<\/b> failed on /);
+                assert.match(jobSummary, /<b>Scenario KO<\/b> failed<\/summary>/);
+                assert.match(jobSummary, /<b>This scenario will fail because of background<\/b> failed<\/summary>/);
                 assert.doesNotMatch(jobSummary, /##### Features/);
             });
 
