@@ -2,9 +2,9 @@ import * as assert from 'assert';
 import { buildJobSummary, MAX_JOB_SUMMARY_STEPS, parseJobSummarySections } from '../src/jobSummary';
 import type { JobSummarySection } from '../src/jobSummary';
 import { EMPTY_GLOBAL_INFO } from '../src/types';
-import type { ReportResult, StepData } from '../src/types';
+import type { Inputs, ReportResult, StepData } from '../src/types';
 
-const inputs = {
+const inputs: Pick<Inputs, 'annotationStatusOnError' | 'annotationStatusOnUndefined' | 'annotationStatusOnPending' | 'jobSummaryContent'> = {
     annotationStatusOnError: 'failure',
     annotationStatusOnUndefined: '',
     annotationStatusOnPending: '',

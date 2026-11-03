@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import { buildAnnotations } from '../src/annotations';
-import type { Annotation, PathResolver, ReportResult } from '../src/types';
+import type { Annotation, Inputs, PathResolver, ReportResult } from '../src/types';
 
 const reportResult: ReportResult = {
     globalInformation: {
@@ -32,14 +32,14 @@ const reportResult: ReportResult = {
 };
 
 // only the failed steps are annotated
-const failedInputs = {
+const failedInputs: Pick<Inputs, 'annotationStatusOnError' | 'annotationStatusOnUndefined' | 'annotationStatusOnPending' | 'showGlobalSummaryReport'> = {
     annotationStatusOnError: 'failure',
     annotationStatusOnUndefined: '',
     annotationStatusOnPending: '',
     showGlobalSummaryReport: false
 };
 
-const allAnnotationsInputs = {
+const allAnnotationsInputs: Pick<Inputs, 'annotationStatusOnError' | 'annotationStatusOnUndefined' | 'annotationStatusOnPending' | 'showGlobalSummaryReport'> = {
     annotationStatusOnError: 'failure',
     annotationStatusOnUndefined: 'warning',
     annotationStatusOnPending: 'notice',

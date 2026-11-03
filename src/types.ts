@@ -64,17 +64,21 @@ export interface ReportReader {
     reader(report: string | Buffer): ReportResult;
 }
 
+// values accepted by the GitHub checks API, documented in action.yml
+export type CheckConclusion = 'success' | 'neutral' | 'failure';
+export type AnnotationLevel = 'notice' | 'warning' | 'failure';
+
 export interface Inputs {
     inputPath: string;
     checkName: string;
     accessToken: string;
-    checkStatusOnError: string;
-    checkStatusOnUndefined: string;
-    checkStatusOnPending: string;
-    annotationStatusOnError: string;
+    checkStatusOnError: CheckConclusion;
+    checkStatusOnUndefined: CheckConclusion;
+    checkStatusOnPending: CheckConclusion;
+    annotationStatusOnError: AnnotationLevel;
     // an empty value means that the steps are not annotated
-    annotationStatusOnUndefined: string;
-    annotationStatusOnPending: string;
+    annotationStatusOnUndefined: AnnotationLevel | '';
+    annotationStatusOnPending: AnnotationLevel | '';
     showNumberOfErrorOnCheckTitle: boolean;
     numberOfTestErrorToFailJob: number;
     showGlobalSummaryReport: boolean;
@@ -88,49 +92,49 @@ export interface SummaryCounts {
     steps: Record<string, number>;
 }
 
-export interface Annotation {
+export type Annotation = {
     path: string;
     start_line: number;
     end_line: number;
     start_column: number;
     end_column: number;
-    annotation_level: string;
+    annotation_level: AnnotationLevel;
     title: string;
     message: string;
-}
+};
 
-export interface CheckOutput {
+export type CheckOutput = {
     title: string;
     summary: string;
     annotations: Annotation[];
-}
+};
 
-export interface Repo {
+export type Repo = {
     owner: string;
     repo: string;
-}
+};
 
-export interface CheckCreateRequest extends Repo {
+export type CheckCreateRequest = Repo & {
     name: string;
     head_sha: string;
     status: 'completed';
-    conclusion: string;
+    conclusion: CheckConclusion;
     output: CheckOutput;
-}
+};
 
-export interface CheckUpdateRequest extends Repo {
+export type CheckUpdateRequest = Repo & {
     output: CheckOutput;
-}
+};
 
-export interface CheckRunUpdateRequest extends CheckUpdateRequest {
+export type CheckRunUpdateRequest = CheckUpdateRequest & {
     check_run_id: number;
-}
+};
 
-export interface CheckRequests {
+export type CheckRequests = {
     create: CheckCreateRequest;
     // updates sending the annotations that do not fit in the create request
     updates: CheckUpdateRequest[];
-}
+};
 
 // returns the path of a feature file relative to the repository, or undefined when it is not found
 export type PathResolver = (file: string) => Promise<string | undefined>;

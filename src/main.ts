@@ -7,7 +7,7 @@ import { buildSummaryCounts, buildSummary } from './summary';
 import { buildCheckRequests, headSha, shouldFailJob } from './check';
 import { buildJobSummary, parseJobSummarySections } from './jobSummary';
 import type { FileUrlBuilder } from './jobSummary';
-import type { Core, Dependencies, GitHubContext, Inputs, Octokit, PathResolver, ReportReader } from './types';
+import type { AnnotationLevel, CheckConclusion, Core, Dependencies, GitHubContext, Inputs, Octokit, PathResolver, ReportReader } from './types';
 
 interface PublishDependencies extends Pick<Dependencies, 'core' | 'github' | 'fs'> {
     octokit: Octokit;
@@ -20,12 +20,12 @@ function readInputs(core: Core): Inputs {
         inputPath: core.getInput('path'),
         checkName: core.getInput('name'),
         accessToken: core.getInput('access-token'),
-        checkStatusOnError: core.getInput('check-status-on-error'),
-        checkStatusOnUndefined: core.getInput('check-status-on-undefined'),
-        checkStatusOnPending: core.getInput('check-status-on-pending'),
-        annotationStatusOnError: core.getInput('annotation-status-on-error'),
-        annotationStatusOnUndefined: core.getInput('annotation-status-on-undefined'),
-        annotationStatusOnPending: core.getInput('annotation-status-on-pending'),
+        checkStatusOnError: core.getInput('check-status-on-error') as CheckConclusion,
+        checkStatusOnUndefined: core.getInput('check-status-on-undefined') as CheckConclusion,
+        checkStatusOnPending: core.getInput('check-status-on-pending') as CheckConclusion,
+        annotationStatusOnError: core.getInput('annotation-status-on-error') as AnnotationLevel,
+        annotationStatusOnUndefined: core.getInput('annotation-status-on-undefined') as AnnotationLevel | '',
+        annotationStatusOnPending: core.getInput('annotation-status-on-pending') as AnnotationLevel | '',
         showNumberOfErrorOnCheckTitle: core.getBooleanInput('show-number-of-error-on-check-title'),
         numberOfTestErrorToFailJob: Number(core.getInput('number-of-test-error-to-fail-job')),
         showGlobalSummaryReport: core.getBooleanInput('show-global-summary-report'),
