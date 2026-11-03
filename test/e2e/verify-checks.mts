@@ -1,6 +1,6 @@
 import * as core from '@actions/core';
 import * as github from '@actions/github';
-import { loadCases } from './cases';
+import { loadCases } from './cases.ts';
 
 // checks the conclusion and the summary of the check runs created by the end-to-end tests,
 // then turns the expected failures into neutral check runs, so the CI ends green

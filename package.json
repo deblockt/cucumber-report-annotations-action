@@ -25,9 +25,9 @@
   },
   "homepage": "https://github.com/deblockt/cucumber-report-annotations-action#readme",
   "dependencies": {
-    "@actions/core": "^1.11.1",
-    "@actions/github": "^8.0.1",
-    "@actions/glob": "^0.5.1"
+    "@actions/core": "^3.0.1",
+    "@actions/github": "^9.1.1",
+    "@actions/glob": "^0.7.0"
   },
   "devDependencies": {
     "@cucumber/cucumber": "^13.0.0",
