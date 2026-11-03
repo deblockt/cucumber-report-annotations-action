@@ -117,6 +117,6 @@ jobs:
           node-version: '24'
       - run: npm ci
       - name: Check the check runs, then neutralize the expected failures
-        run: npx tsx test/e2e/verify-checks.ts
+        run: npx tsx test/e2e/verify-checks.mts
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
