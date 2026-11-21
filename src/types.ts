@@ -182,25 +182,18 @@ export interface IssueComment {
     body?: string | null;
 }
 
-// type aliases, not interfaces: the octokit request parameters require an index signature
-export type ListCommentsRequest = {
-    owner: string;
-    repo: string;
+export type ListCommentsRequest = Repo & {
     issue_number: number;
     per_page?: number;
     page?: number;
 };
 
-export type CreateCommentRequest = {
-    owner: string;
-    repo: string;
+export type CreateCommentRequest = Repo & {
     issue_number: number;
     body: string;
 };
 
-export type UpdateCommentRequest = {
-    owner: string;
-    repo: string;
+export type UpdateCommentRequest = Repo & {
     comment_id: number;
     body: string;
 };

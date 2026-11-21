@@ -8,16 +8,25 @@ const COMMENTS_PER_PAGE = 100;
 // the report of one cucumber file in the comment
 export interface CommentReport {
     title: string;
-    // the sections of job-summary-content
-    content: string;
-    // the number of scenarios and steps by status, used when the content does not fit in the comment
+    // the sections of job-summary-content, empty when the job summary is disabled
+    jobSummary: string;
+    // the number of scenarios and steps by status, written when there is no job summary or when it does not fit in the comment
     counts: string;
 }
 
 export interface PullRequestCommentParameters {
-    checkName: string;
+    marker: string;
     reports: CommentReport[];
     runUrl: string;
+}
+
+export interface PublishCommentParameters {
+    core: Core;
+    octokit: Octokit;
+    repo: Repo;
+    pullRequestNumber: number;
+    marker: string;
+    body: string;
 }
 
 // reads the pull-request-number input, undefined when no comment should be written
@@ -43,10 +52,9 @@ function renderComment(marker: string, reports: { title: string, content: string
 }
 
 // the comment with the job summary content of each report, or only the counts when it is too long
-export function buildPullRequestComment({ checkName, reports, runUrl }: PullRequestCommentParameters): string {
-    const marker = commentMarker(checkName);
+export function buildPullRequestComment({ marker, reports, runUrl }: PullRequestCommentParameters): string {
     const runLink = `[workflow run](${runUrl})`;
-    const comment = renderComment(marker, reports, `<sub>Published by the ${runLink}.</sub>`);
+    const comment = renderComment(marker, reports.map(({ title, jobSummary, counts }) => ({ title, content: jobSummary || counts })), `<sub>Published by the ${runLink}.</sub>`);
     if (comment.length <= MAX_COMMENT_LENGTH) {
         return comment;
     }
@@ -71,8 +79,8 @@ async function findComment(octokit: Octokit, repo: Repo, issueNumber: number, ma
 }
 
 // creates the comment on the pull request, or updates the one written by a previous run for the same check
-export async function publishPullRequestComment(core: Core, octokit: Octokit, repo: Repo, pullRequestNumber: number, checkName: string, body: string): Promise<void> {
-    const existing = await findComment(octokit, repo, pullRequestNumber, commentMarker(checkName));
+export async function publishPullRequestComment({ core, octokit, repo, pullRequestNumber, marker, body }: PublishCommentParameters): Promise<void> {
+    const existing = await findComment(octokit, repo, pullRequestNumber, marker);
     if (existing) {
         core.info(`Updating the comment ${existing.id} of the pull request #${pullRequestNumber}`);
         await octokit.rest.issues.updateComment({ ...repo, comment_id: existing.id, body });

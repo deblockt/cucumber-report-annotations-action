@@ -29438,10 +29438,9 @@ ${body}
 
 ${footer}`;
 }
-function buildPullRequestComment({ checkName, reports, runUrl: runUrl2 }) {
-  const marker = commentMarker(checkName);
+function buildPullRequestComment({ marker, reports, runUrl: runUrl2 }) {
   const runLink = `[workflow run](${runUrl2})`;
-  const comment = renderComment(marker, reports, `<sub>Published by the ${runLink}.</sub>`);
+  const comment = renderComment(marker, reports.map(({ title, jobSummary, counts }) => ({ title, content: jobSummary || counts })), `<sub>Published by the ${runLink}.</sub>`);
   if (comment.length <= MAX_COMMENT_LENGTH) {
     return comment;
   }
@@ -29462,8 +29461,8 @@ async function findComment(octokit, repo, issueNumber, marker) {
     }
   }
 }
-async function publishPullRequestComment(core, octokit, repo, pullRequestNumber, checkName, body) {
-  const existing = await findComment(octokit, repo, pullRequestNumber, commentMarker(checkName));
+async function publishPullRequestComment({ core, octokit, repo, pullRequestNumber, marker, body }) {
+  const existing = await findComment(octokit, repo, pullRequestNumber, marker);
   if (existing) {
     core.info(`Updating the comment ${existing.id} of the pull request #${pullRequestNumber}`);
     await octokit.rest.issues.updateComment({ ...repo, comment_id: existing.id, body });
@@ -29527,22 +29526,24 @@ async function publishReportFile({ core, github, fs: fs6, octokit, inputs, resol
   }
   return {
     annotationNumber: annotations.length,
-    // the comment always gives the counts, even when the job summary is disabled
-    comment: { title: checkTitle, content: jobSummary || summary2, counts: summary2 }
+    comment: { title: checkTitle, jobSummary, counts: summary2 }
   };
 }
-function fileUrlBuilder(context3) {
-  const { serverUrl, repo: { owner, repo } } = context3;
-  const sha = headSha(context3);
-  return (path14) => `${serverUrl}/${owner}/${repo}/blob/${sha}/${path14.split("/").map(encodeURIComponent).join("/")}`;
+function repositoryUrl({ serverUrl, repo: { owner, repo } }) {
+  return `${serverUrl}/${owner}/${repo}`;
 }
-function runUrl({ serverUrl, repo: { owner, repo }, runId }) {
-  return `${serverUrl}/${owner}/${repo}/actions/runs/${runId}`;
+function fileUrlBuilder(context3) {
+  const sha = headSha(context3);
+  return (path14) => `${repositoryUrl(context3)}/blob/${sha}/${path14.split("/").map(encodeURIComponent).join("/")}`;
+}
+function runUrl(context3) {
+  return `${repositoryUrl(context3)}/actions/runs/${context3.runId}`;
 }
 async function commentPullRequest({ core, github, octokit, inputs }, pullRequestNumber, reports) {
-  const body = buildPullRequestComment({ checkName: inputs.checkName, reports, runUrl: runUrl(github.context) });
+  const marker = commentMarker(inputs.checkName);
+  const body = buildPullRequestComment({ marker, reports, runUrl: runUrl(github.context) });
   try {
-    await publishPullRequestComment(core, octokit, github.context.repo, pullRequestNumber, inputs.checkName, body);
+    await publishPullRequestComment({ core, octokit, repo: github.context.repo, pullRequestNumber, marker, body });
   } catch (error2) {
     core.warning(`Unable to comment the pull request #${pullRequestNumber}: ${errorMessage(error2)}. Check that the pull request exists and that the token has the pull-requests: write permission.`);
   }
@@ -29574,7 +29575,9 @@ async function publishReports({ core, github, glob, fs: fs6, workspace = process
     try {
       const { annotationNumber, comment } = await publishReportFile(dependencies, cucumberReportFile, remainingAnnotations);
       remainingAnnotations -= annotationNumber;
-      commentReports.push(comment);
+      if (inputs.pullRequestNumber !== void 0) {
+        commentReports.push(comment);
+      }
     } catch (error2) {
       throw new Error(`Unable to publish the cucumber report ${cucumberReportFile}: ${errorMessage(error2)}`, { cause: error2 });
     }

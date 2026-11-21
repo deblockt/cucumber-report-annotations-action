@@ -43,10 +43,10 @@ describe('pullRequestComment', () => {
     describe('buildPullRequestComment', () => {
         it('should write the content of each report', () => {
             const comment = buildPullRequestComment({
-                checkName: 'Cucumber report',
+                marker: MARKER,
                 reports: [
-                    { title: 'Cucumber report (1 error)', content: 'content 1', counts: 'counts 1' },
-                    { title: 'Cucumber report', content: 'content 2', counts: 'counts 2' }
+                    { title: 'Cucumber report (1 error)', jobSummary: 'content 1', counts: 'counts 1' },
+                    { title: 'Cucumber report', jobSummary: 'content 2', counts: 'counts 2' }
                 ],
                 runUrl: RUN_URL
             });
@@ -56,10 +56,19 @@ describe('pullRequestComment', () => {
                 + `<sub>Published by the [workflow run](${RUN_URL}).</sub>`);
         });
 
+        it('should write the counts when there is no job summary', () => {
+            const comment = buildPullRequestComment({
+                marker: MARKER,
+                reports: [{ title: 'Cucumber report', jobSummary: '', counts: 'the counts' }],
+                runUrl: RUN_URL
+            });
+            assert.strictEqual(comment, `${MARKER}\n### Cucumber report\n\nthe counts\n\n<sub>Published by the [workflow run](${RUN_URL}).</sub>`);
+        });
+
         it('should only write the counts when the content is too long', () => {
             const comment = buildPullRequestComment({
-                checkName: 'Cucumber report',
-                reports: [{ title: 'Cucumber report', content: 'x'.repeat(MAX_COMMENT_LENGTH), counts: 'the counts' }],
+                marker: MARKER,
+                reports: [{ title: 'Cucumber report', jobSummary: 'x'.repeat(MAX_COMMENT_LENGTH), counts: 'the counts' }],
                 runUrl: RUN_URL
             });
             assert.strictEqual(comment, `${MARKER}\n### Cucumber report\n\nthe counts\n\n`
@@ -68,8 +77,8 @@ describe('pullRequestComment', () => {
 
         it('should link the workflow run when even the counts are too long', () => {
             const comment = buildPullRequestComment({
-                checkName: 'Cucumber report',
-                reports: [{ title: 'Cucumber report', content: 'x'.repeat(MAX_COMMENT_LENGTH), counts: 'x'.repeat(MAX_COMMENT_LENGTH) }],
+                marker: MARKER,
+                reports: [{ title: 'Cucumber report', jobSummary: 'x'.repeat(MAX_COMMENT_LENGTH), counts: 'x'.repeat(MAX_COMMENT_LENGTH) }],
                 runUrl: RUN_URL
             });
             assert.strictEqual(comment, `${MARKER}\nThe report is too long for a comment, it is in the job summary of the [workflow run](${RUN_URL}).`);
@@ -81,7 +90,7 @@ describe('pullRequestComment', () => {
 
         async function publish(options: FakeGitHubOptions = {}) {
             const github = fakeGithub(options);
-            await publishPullRequestComment(fakeCore(), github.getOctokit('token'), repo, 89, 'Cucumber report', `${MARKER}\nnew body`);
+            await publishPullRequestComment({ core: fakeCore(), octokit: github.getOctokit('token'), repo, pullRequestNumber: 89, marker: MARKER, body: `${MARKER}\nnew body` });
             return github;
         }
 
