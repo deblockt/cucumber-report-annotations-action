@@ -46,6 +46,9 @@ inputs:
     description: "comma separated list of the sections written in the job summary. 'counts': the number of scenarios and steps by status, 'steps': the details of the failed steps (and of the undefined and pending steps when their annotation status is set), 'features': the scenarios of each feature file. An empty value disables the job summary."
     required: false
     default: 'counts,steps'
+  pull-request-number:
+    description: "the number of a pull request to comment with the job summary content (the counts when job-summary-content is empty). The comment is updated on the next runs with the same check name. Useful when the workflow is not triggered by the pull request. The token needs the 'pull-requests: write' permission. No comment is written when it is not set."
+    required: false
   number-of-test-error-to-fail-job:
     description: "indicate the number of test in error to fail the build. If the value is -1 this action will never fail the build."
     required: true

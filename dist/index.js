@@ -29413,6 +29413,66 @@ async function buildJobSummary(parameters) {
   return content.filter((part) => part !== "").join("\n\n");
 }
 
+// src/pullRequestComment.ts
+var MAX_COMMENT_LENGTH = 65536;
+var COMMENTS_PER_PAGE = 100;
+function parsePullRequestNumber(value) {
+  const trimmed = value.trim();
+  if (trimmed === "") {
+    return void 0;
+  }
+  if (!/^[1-9]\d*$/.test(trimmed)) {
+    throw new Error(`Invalid pull-request-number "${value}": a positive integer is expected.`);
+  }
+  return Number(trimmed);
+}
+function commentMarker(checkName) {
+  return `<!-- cucumber-report-annotations-action: ${checkName.replace(/-->/g, "")} -->`;
+}
+function renderComment(marker, reports, footer) {
+  const body = reports.map(({ title, content }) => `### ${title}` + (content ? `
+
+${content}` : "")).join("\n\n");
+  return `${marker}
+${body}
+
+${footer}`;
+}
+function buildPullRequestComment({ checkName, reports, runUrl: runUrl2 }) {
+  const marker = commentMarker(checkName);
+  const runLink = `[workflow run](${runUrl2})`;
+  const comment = renderComment(marker, reports, `<sub>Published by the ${runLink}.</sub>`);
+  if (comment.length <= MAX_COMMENT_LENGTH) {
+    return comment;
+  }
+  const countsOnly = renderComment(
+    marker,
+    reports.map(({ title, counts }) => ({ title, content: counts })),
+    `<sub>The details are too long for a comment, they are in the job summary of the ${runLink}.</sub>`
+  );
+  return countsOnly.length <= MAX_COMMENT_LENGTH ? countsOnly : `${marker}
+The report is too long for a comment, it is in the job summary of the ${runLink}.`;
+}
+async function findComment(octokit, repo, issueNumber, marker) {
+  for (let page = 1; ; page++) {
+    const { data } = await octokit.rest.issues.listComments({ ...repo, issue_number: issueNumber, per_page: COMMENTS_PER_PAGE, page });
+    const comment = data.find((comment2) => comment2.body?.startsWith(marker));
+    if (comment || data.length < COMMENTS_PER_PAGE) {
+      return comment;
+    }
+  }
+}
+async function publishPullRequestComment(core, octokit, repo, pullRequestNumber, checkName, body) {
+  const existing = await findComment(octokit, repo, pullRequestNumber, commentMarker(checkName));
+  if (existing) {
+    core.info(`Updating the comment ${existing.id} of the pull request #${pullRequestNumber}`);
+    await octokit.rest.issues.updateComment({ ...repo, comment_id: existing.id, body });
+  } else {
+    core.info(`Commenting the pull request #${pullRequestNumber}`);
+    await octokit.rest.issues.createComment({ ...repo, issue_number: pullRequestNumber, body });
+  }
+}
+
 // src/main.ts
 function readInputs(core) {
   return {
@@ -29430,7 +29490,8 @@ function readInputs(core) {
     showGlobalSummaryReport: core.getBooleanInput("show-global-summary-report"),
     ignoreNoReportFound: core.getBooleanInput("ignore-no-report-found"),
     maxNumberOfAnnotations: Number(core.getInput("max-number-of-annotations")),
-    jobSummaryContent: parseJobSummarySections(core.getInput("job-summary-content"))
+    jobSummaryContent: parseJobSummarySections(core.getInput("job-summary-content")),
+    pullRequestNumber: parsePullRequestNumber(core.getInput("pull-request-number"))
   };
 }
 async function publishReportFile({ core, github, fs: fs6, octokit, inputs, resolvePath }, cucumberReportFile, remainingAnnotations) {
@@ -29464,12 +29525,27 @@ async function publishReportFile({ core, github, fs: fs6, octokit, inputs, resol
   if (shouldFailJob(errorNumber, inputs)) {
     core.setFailed(`${errorNumber} test(s) in error`);
   }
-  return annotations.length;
+  return {
+    annotationNumber: annotations.length,
+    // the comment always gives the counts, even when the job summary is disabled
+    comment: { title: checkTitle, content: jobSummary || summary2, counts: summary2 }
+  };
 }
 function fileUrlBuilder(context3) {
   const { serverUrl, repo: { owner, repo } } = context3;
   const sha = headSha(context3);
   return (path14) => `${serverUrl}/${owner}/${repo}/blob/${sha}/${path14.split("/").map(encodeURIComponent).join("/")}`;
+}
+function runUrl({ serverUrl, repo: { owner, repo }, runId }) {
+  return `${serverUrl}/${owner}/${repo}/actions/runs/${runId}`;
+}
+async function commentPullRequest({ core, github, octokit, inputs }, pullRequestNumber, reports) {
+  const body = buildPullRequestComment({ checkName: inputs.checkName, reports, runUrl: runUrl(github.context) });
+  try {
+    await publishPullRequestComment(core, octokit, github.context.repo, pullRequestNumber, inputs.checkName, body);
+  } catch (error2) {
+    core.warning(`Unable to comment the pull request #${pullRequestNumber}: ${errorMessage(error2)}. Check that the pull request exists and that the token has the pull-requests: write permission.`);
+  }
 }
 function errorMessage(error2) {
   return error2 instanceof Error ? error2.message : String(error2);
@@ -29492,14 +29568,19 @@ async function publishReports({ core, github, glob, fs: fs6, workspace = process
   }
   const dependencies = { core, github, fs: fs6, octokit: github.getOctokit(inputs.accessToken), inputs, resolvePath };
   let remainingAnnotations = inputs.maxNumberOfAnnotations;
+  const commentReports = [];
   for (const cucumberReportFile of reportFiles) {
     core.info("found cucumber report " + cucumberReportFile);
     try {
-      const sentAnnotationNumber = await publishReportFile(dependencies, cucumberReportFile, remainingAnnotations);
-      remainingAnnotations -= sentAnnotationNumber;
+      const { annotationNumber, comment } = await publishReportFile(dependencies, cucumberReportFile, remainingAnnotations);
+      remainingAnnotations -= annotationNumber;
+      commentReports.push(comment);
     } catch (error2) {
       throw new Error(`Unable to publish the cucumber report ${cucumberReportFile}: ${errorMessage(error2)}`, { cause: error2 });
     }
+  }
+  if (inputs.pullRequestNumber !== void 0) {
+    await commentPullRequest(dependencies, inputs.pullRequestNumber, commentReports);
   }
 }
 function errorStack(error2) {

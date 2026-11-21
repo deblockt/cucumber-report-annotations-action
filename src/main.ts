@@ -7,6 +7,8 @@ import { buildSummaryCounts, buildSummary } from './summary';
 import { buildCheckRequests, headSha, shouldFailJob } from './check';
 import { buildJobSummary, parseJobSummarySections } from './jobSummary';
 import type { FileUrlBuilder } from './jobSummary';
+import { buildPullRequestComment, parsePullRequestNumber, publishPullRequestComment } from './pullRequestComment';
+import type { CommentReport } from './pullRequestComment';
 import type { AnnotationLevel, CheckConclusion, Core, Dependencies, GitHubContext, Inputs, Octokit, PathResolver, ReportReader } from './types';
 
 interface PublishDependencies extends Pick<Dependencies, 'core' | 'github' | 'fs'> {
@@ -31,11 +33,12 @@ function readInputs(core: Core): Inputs {
         showGlobalSummaryReport: core.getBooleanInput('show-global-summary-report'),
         ignoreNoReportFound: core.getBooleanInput('ignore-no-report-found'),
         maxNumberOfAnnotations: Number(core.getInput('max-number-of-annotations')),
-        jobSummaryContent: parseJobSummarySections(core.getInput('job-summary-content'))
+        jobSummaryContent: parseJobSummarySections(core.getInput('job-summary-content')),
+        pullRequestNumber: parsePullRequestNumber(core.getInput('pull-request-number'))
     };
 }
 
-async function publishReportFile({ core, github, fs, octokit, inputs, resolvePath }: PublishDependencies, cucumberReportFile: string, remainingAnnotations: number): Promise<number> {
+async function publishReportFile({ core, github, fs, octokit, inputs, resolvePath }: PublishDependencies, cucumberReportFile: string, remainingAnnotations: number): Promise<PublishedReport> {
     const reportResultString = await fs.promises.readFile(cucumberReportFile);
     const reportReader: ReportReader = cucumberReportFile.endsWith('.json') ? reportReaderJson : reportReaderNdJson;
     const reportResult = reportReader.reader(reportResultString);
@@ -74,13 +77,36 @@ async function publishReportFile({ core, github, fs, octokit, inputs, resolvePat
     if (shouldFailJob(errorNumber, inputs)) {
         core.setFailed(`${errorNumber} test(s) in error`);
     }
-    return annotations.length;
+    return {
+        annotationNumber: annotations.length,
+        // the comment always gives the counts, even when the job summary is disabled
+        comment: { title: checkTitle, content: jobSummary || summary, counts: summary }
+    };
+}
+
+interface PublishedReport {
+    annotationNumber: number;
+    comment: CommentReport;
 }
 
 function fileUrlBuilder(context: GitHubContext): FileUrlBuilder {
     const { serverUrl, repo: { owner, repo } } = context;
     const sha = headSha(context);
     return path => `${serverUrl}/${owner}/${repo}/blob/${sha}/${path.split('/').map(encodeURIComponent).join('/')}`;
+}
+
+function runUrl({ serverUrl, repo: { owner, repo }, runId }: GitHubContext): string {
+    return `${serverUrl}/${owner}/${repo}/actions/runs/${runId}`;
+}
+
+// a comment that can not be written does not fail the action: the check and the job summary are already published
+async function commentPullRequest({ core, github, octokit, inputs }: PublishDependencies, pullRequestNumber: number, reports: CommentReport[]): Promise<void> {
+    const body = buildPullRequestComment({ checkName: inputs.checkName, reports, runUrl: runUrl(github.context) });
+    try {
+        await publishPullRequestComment(core, octokit, github.context.repo, pullRequestNumber, inputs.checkName, body);
+    } catch (error) {
+        core.warning(`Unable to comment the pull request #${pullRequestNumber}: ${errorMessage(error)}. Check that the pull request exists and that the token has the pull-requests: write permission.`);
+    }
 }
 
 function errorMessage(error: unknown): string {
@@ -106,14 +132,19 @@ async function publishReports({ core, github, glob, fs, workspace = process.cwd(
     }
     const dependencies = { core, github, fs, octokit: github.getOctokit(inputs.accessToken), inputs, resolvePath };
     let remainingAnnotations = inputs.maxNumberOfAnnotations;
+    const commentReports: CommentReport[] = [];
     for (const cucumberReportFile of reportFiles) {
         core.info("found cucumber report " + cucumberReportFile);
         try {
-            const sentAnnotationNumber = await publishReportFile(dependencies, cucumberReportFile, remainingAnnotations);
-            remainingAnnotations -= sentAnnotationNumber;
+            const { annotationNumber, comment } = await publishReportFile(dependencies, cucumberReportFile, remainingAnnotations);
+            remainingAnnotations -= annotationNumber;
+            commentReports.push(comment);
         } catch (error) {
             throw new Error(`Unable to publish the cucumber report ${cucumberReportFile}: ${errorMessage(error)}`, { cause: error });
         }
+    }
+    if (inputs.pullRequestNumber !== undefined) {
+        await commentPullRequest(dependencies, inputs.pullRequestNumber, commentReports);
     }
 }
 

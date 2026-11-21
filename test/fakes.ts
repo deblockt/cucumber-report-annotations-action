@@ -4,11 +4,14 @@ import type {
     CheckCreateRequest,
     CheckRunUpdateRequest,
     Core,
+    CreateCommentRequest,
     FileSystem,
     GitHub,
     GitHubContext,
     Glob,
-    JobSummary
+    IssueComment,
+    JobSummary,
+    UpdateCommentRequest
 } from '../src/types';
 
 export interface FakeCore extends Core {
@@ -60,18 +63,36 @@ export interface FakeGitHub extends GitHub {
     tokens: string[];
     createRequests: CheckCreateRequest[];
     updateRequests: CheckRunUpdateRequest[];
+    // the comments of the pull requests, by number
+    comments: Record<number, IssueComment[]>;
+    createCommentRequests: CreateCommentRequest[];
+    updateCommentRequests: UpdateCommentRequest[];
 }
 
-// fake of @actions/github recording the check requests
-export function fakeGithub({ payload = {} }: { payload?: GitHubContext['payload'] } = {}): FakeGitHub {
+export interface FakeGitHubOptions {
+    payload?: GitHubContext['payload'];
+    comments?: Record<number, IssueComment[]>;
+    // error thrown by the comment requests
+    commentError?: Error;
+}
+
+// fake of @actions/github recording the check and comment requests
+export function fakeGithub({ payload = {}, comments = {}, commentError }: FakeGitHubOptions = {}): FakeGitHub {
+    const failOnComment = () => {
+        if (commentError) throw commentError;
+    };
     const github: FakeGitHub = {
         tokens: [],
         createRequests: [],
         updateRequests: [],
+        comments,
+        createCommentRequests: [],
+        updateCommentRequests: [],
         context: {
             serverUrl: 'https://github.com',
             repo: { owner: 'owner', repo: 'my-repo' },
             sha: 'commit-sha',
+            runId: 1234,
             payload
         },
         getOctokit(token) {
@@ -86,6 +107,23 @@ export function fakeGithub({ payload = {} }: { payload?: GitHubContext['payload'
                         update: async request => {
                             github.updateRequests.push(request);
                             return { data: { id: request.check_run_id } };
+                        }
+                    },
+                    issues: {
+                        listComments: async ({ issue_number, per_page = 30, page = 1 }) => {
+                            failOnComment();
+                            const all = github.comments[issue_number] || [];
+                            return { data: all.slice((page - 1) * per_page, page * per_page) };
+                        },
+                        createComment: async request => {
+                            failOnComment();
+                            github.createCommentRequests.push(request);
+                            return {};
+                        },
+                        updateComment: async request => {
+                            failOnComment();
+                            github.updateCommentRequests.push(request);
+                            return {};
                         }
                     }
                 }
