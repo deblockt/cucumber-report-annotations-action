@@ -88,6 +88,7 @@ All parameters in this action are optional, allowing flexibility in configuratio
 | **access-token**                        | GitHub token.                                                                           | `${{ github.token }}`     |                                 |
 | **path**                                | Glob pattern to locate Cucumber JSON files.                                             | `**/cucumber-report.json` |                                 |
 | **name**                                | The name of the check.                                                                  | `Cucumber report`         |                                 |
+| **ignore-no-report-found**              | Do not fail the action when no report file is found.                                    | `false`                   | `true`, `false`                 |
 | **check-status-on-error**               | Check status for Cucumber errors.                                                       | `failure`                 | `success`, `neutral`, `failure` |
 | **check-status-on-undefined**           | Check status for undefined steps.                                                       | `success`                 | `success`, `neutral`, `failure` |
 | **check-status-on-pending**             | Check status for pending steps.                                                         | `success`                 | `success`, `neutral`, `failure` |
