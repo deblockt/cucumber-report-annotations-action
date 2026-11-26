@@ -25,6 +25,7 @@ describe('end-to-end cases', () => {
             'show-number-of-error-on-check-title': 'true',
             'show-global-summary-report': 'false',
             'number-of-test-error-to-fail-job': '-1',
+            'pull-request-number': '',
             'max-number-of-annotations': '50',
             'ignore-no-report-found': 'false',
             'job-summary-content': 'counts,steps'

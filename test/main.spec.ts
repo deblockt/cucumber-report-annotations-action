@@ -2,7 +2,7 @@ import * as assert from 'assert';
 import * as path from 'path';
 import { run } from '../src/main';
 import { fakeCore, fakeGithub, fakeGlob, fakeFs, jsonReport } from './fakes';
-import type { FakeGitHub } from './fakes';
+import type { FakeGitHub, FakeGitHubOptions } from './fakes';
 import type { GitHubContext } from '../src/types';
 
 interface ActionRun {
@@ -11,6 +11,8 @@ interface ActionRun {
     contentByFile?: Record<string, string>;
     payload?: GitHubContext['payload'];
     featureFiles?: string[];
+    comments?: FakeGitHubOptions['comments'];
+    commentError?: Error;
 }
 
 // default values of action.yml
@@ -27,17 +29,18 @@ const DEFAULT_INPUTS: Record<string, string> = {
     'number-of-test-error-to-fail-job': '-1',
     'ignore-no-report-found': 'false',
     'max-number-of-annotations': '50',
-    'job-summary-content': 'counts,steps'
+    'job-summary-content': 'counts,steps',
+    'pull-request-number': ''
 };
 
 function fixture(name: string): string {
     return path.join(__dirname, 'fixtures', 'reports', name);
 }
 
-async function runAction({ inputs = {}, reportFiles = [], contentByFile = {}, payload, featureFiles = [] }: ActionRun = {}) {
+async function runAction({ inputs = {}, reportFiles = [], contentByFile = {}, payload, featureFiles = [], comments, commentError }: ActionRun = {}) {
     const allInputs = { ...DEFAULT_INPUTS, ...inputs };
     const core = fakeCore(allInputs);
-    const github = fakeGithub({ payload });
+    const github = fakeGithub({ payload, comments, commentError });
     const glob = fakeGlob({ [allInputs.path]: reportFiles, '**/*.feature': featureFiles });
     await run({ core, github, glob, fs: fakeFs(contentByFile), workspace: '/workspace' });
     return { core, github };
@@ -240,5 +243,55 @@ describe('main', () => {
         });
         assert.strictEqual(core.failures.length, 1);
         assert.match(core.failures[0], /^Unable to publish the cucumber report \/workspace\/cucumber-report.json: .*is not valid JSON/);
+    });
+    describe('with a pull request number', () => {
+        const reportFiles = [fixture('nominal.json')];
+        const inputs = { 'pull-request-number': '89' };
+
+        it('should not comment a pull request without pull request number', async () => {
+            const { github } = await runAction({ reportFiles });
+            assert.deepStrictEqual(github.createCommentRequests, []);
+        });
+
+        it('should comment the pull request with the job summary content', async () => {
+            const { core, github } = await runAction({ reportFiles, inputs });
+            assert.strictEqual(github.createCommentRequests.length, 1);
+            const { owner, repo, issue_number, body } = github.createCommentRequests[0];
+            assert.deepStrictEqual({ owner, repo, issue_number }, { owner: 'owner', repo: 'my-repo', issue_number: 89 });
+            assert.ok(body.startsWith('<!-- cucumber-report-annotations-action: Cucumber report -->\n### Cucumber report (2 errors)\n\n'));
+            assert.ok(body.includes(core.summaryRaws.join('').trim()));
+            assert.ok(body.endsWith('<sub>Published by the [workflow run](https://github.com/owner/my-repo/actions/runs/1234).</sub>'));
+        });
+
+        it('should write one comment for all the reports', async () => {
+            const { github } = await runAction({ reportFiles: [fixture('nominal.json'), fixture('nominal.ndjson')], inputs });
+            assert.strictEqual(github.createCommentRequests.length, 1);
+            assert.strictEqual(github.createCommentRequests[0].body.match(/### Cucumber report \(2 errors\)/g)?.length, 2);
+        });
+
+        it('should update the comment of a previous run', async () => {
+            const comments = { 89: [{ id: 7, body: '<!-- cucumber-report-annotations-action: Cucumber report -->\nold' }] };
+            const { github } = await runAction({ reportFiles, inputs, comments });
+            assert.deepStrictEqual(github.createCommentRequests, []);
+            assert.deepStrictEqual(github.updateCommentRequests.map(request => request.comment_id), [7]);
+        });
+
+        it('should write the counts when the job summary is disabled', async () => {
+            const { github } = await runAction({ reportFiles, inputs: { ...inputs, 'job-summary-content': '' } });
+            assert.match(github.createCommentRequests[0].body, /### Cucumber report \(2 errors\)\n\n    7 Scenarios/);
+        });
+
+        it('should only warn when the comment can not be written', async () => {
+            const { core, github } = await runAction({ reportFiles, inputs, commentError: new Error('Resource not accessible by integration') });
+            assert.deepStrictEqual(core.failures, []);
+            assert.deepStrictEqual(core.warnings.slice(-1), ['Unable to comment the pull request #89: Resource not accessible by integration. Check that the pull request exists and that the token has the pull-requests: write permission.']);
+            assert.strictEqual(github.createRequests.length, 1);
+        });
+
+        it('should fail on an invalid pull request number', async () => {
+            const { core, github } = await runAction({ reportFiles, inputs: { 'pull-request-number': 'abc' } });
+            assert.deepStrictEqual(core.failures, ['Invalid pull-request-number "abc": a positive integer is expected.']);
+            assert.strictEqual(github.createRequests.length, 0);
+        });
     });
 });

@@ -85,6 +85,8 @@ export interface Inputs {
     ignoreNoReportFound: boolean;
     maxNumberOfAnnotations: number;
     jobSummaryContent: JobSummarySection[];
+    // the pull request to comment, undefined when no comment should be written
+    pullRequestNumber?: number;
 }
 
 export interface SummaryCounts {
@@ -162,6 +164,7 @@ export interface GitHubContext {
     serverUrl: string;
     repo: Repo;
     sha: string;
+    runId: number;
     payload: {
         pull_request?: {
             [key: string]: unknown;
@@ -174,11 +177,37 @@ export interface CheckRunResponse {
     data: { id: number };
 }
 
+export interface IssueComment {
+    id: number;
+    body?: string | null;
+}
+
+export type ListCommentsRequest = Repo & {
+    issue_number: number;
+    per_page?: number;
+    page?: number;
+};
+
+export type CreateCommentRequest = Repo & {
+    issue_number: number;
+    body: string;
+};
+
+export type UpdateCommentRequest = Repo & {
+    comment_id: number;
+    body: string;
+};
+
 export interface Octokit {
     rest: {
         checks: {
             create(request: CheckCreateRequest): Promise<CheckRunResponse>;
             update(request: CheckRunUpdateRequest): Promise<unknown>;
+        };
+        issues: {
+            listComments(request: ListCommentsRequest): Promise<{ data: IssueComment[] }>;
+            createComment(request: CreateCommentRequest): Promise<unknown>;
+            updateComment(request: UpdateCommentRequest): Promise<unknown>;
         };
     };
 }
