@@ -5,7 +5,7 @@ This GitHub Action publishes action annotations from Cucumber reports.
 ## Example
 
 ```yaml
-- uses: deblockt/cucumber-report-annotations-action@v1.25
+- uses: deblockt/cucumber-report-annotations-action@v1.26
   with:
     access-token: ${{ secrets.GITHUB_TOKEN }}
     path: "**/cucumber-report.json"
@@ -34,7 +34,7 @@ permissions:
   checks: write
   pull-requests: write
 steps:
-  - uses: deblockt/cucumber-report-annotations-action@v1.25
+  - uses: deblockt/cucumber-report-annotations-action@v1.26
     with:
       path: "**/cucumber-report.json"
       pull-request-number: ${{ inputs.pull-request-number }}
@@ -88,6 +88,7 @@ All parameters in this action are optional, allowing flexibility in configuratio
 | **access-token**                        | GitHub token.                                                                           | `${{ github.token }}`     |                                 |
 | **path**                                | Glob pattern to locate Cucumber JSON files.                                             | `**/cucumber-report.json` |                                 |
 | **name**                                | The name of the check.                                                                  | `Cucumber report`         |                                 |
+| **ignore-no-report-found**              | Do not fail the action when no report file is found.                                    | `false`                   | `true`, `false`                 |
 | **check-status-on-error**               | Check status for Cucumber errors.                                                       | `failure`                 | `success`, `neutral`, `failure` |
 | **check-status-on-undefined**           | Check status for undefined steps.                                                       | `success`                 | `success`, `neutral`, `failure` |
 | **check-status-on-pending**             | Check status for pending steps.                                                         | `success`                 | `success`, `neutral`, `failure` |
